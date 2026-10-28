@@ -92,3 +92,8 @@ The NoteX palette theme carries restored DarkModeDefault/Zenburn attribution
 and the original GPLv2 resource license. The upstream DansLeRuSH-Dark theme is
 omitted because its header includes noncommercial terms. Markdown UDLs retain
 their Edditoria attribution and include the complete MIT license.
+
+The repository root LICENSE uses the standard GPLv3 text for license detection.
+The original Notepad++ license file, including its copyright preamble, is retained
+verbatim at LICENSES/Notepad-plus-plus-LICENSE.txt. The v1.3.0 release tag remains
+unchanged and continues to identify its exact published source and artifacts.

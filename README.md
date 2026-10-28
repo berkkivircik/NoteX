@@ -40,7 +40,8 @@ or a different NoteX revision when redistributing this binary.
 ## License and attribution
 
 NoteX is distributed under the **GNU General Public License, version 3**.
-See [LICENSE](LICENSE) for the original Notepad++ notice and complete license.
+See [LICENSE](LICENSE) for the complete license. The original Notepad++ license
+and copyright notice are preserved in [LICENSES/Notepad-plus-plus-LICENSE.txt](LICENSES/Notepad-plus-plus-LICENSE.txt).
 NoteX modifications: Copyright (C) 2026 Berk Kivircik.
 Original Notepad++ copyrights, including Don HO's, are preserved.
 See [MODIFICATIONS.md](MODIFICATIONS.md), [CHANGELOG.md](CHANGELOG.md),

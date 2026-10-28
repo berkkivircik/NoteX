@@ -7,7 +7,7 @@ separately licensed components retain their original permissions and conditions.
 
 | Component | Distributed location | License and attribution |
 | --- | --- | --- |
-| Notepad++ | PowerEditor | GNU GPL v3; Don HO and contributors. See LICENSE. |
+| Notepad++ | PowerEditor | GNU GPL v3; Don HO and contributors. See LICENSE and LICENSES/Notepad-plus-plus-LICENSE.txt. |
 | Scintilla | scintilla | Neil Hodgson and contributors; permissive Scintilla license. See LICENSES/Scintilla.txt. NoteX modifications are identified separately. |
 | Lexilla | lexilla | Neil Hodgson and contributors; permissive Scintilla/Lexilla license. See LICENSES/Lexilla.txt. |
 | Boost.Regex and included Boost headers | boostregex | Boost Software License 1.0. See LICENSES/Boost-1.0.txt and original file notices. |
