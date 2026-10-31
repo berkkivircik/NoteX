@@ -17,10 +17,10 @@ separately licensed components retain their original permissions and conditions.
 | Windows dark-mode menu helpers | PowerEditor/src/DarkMode | MIT; Adam D. Walling and PolyHook contributors. See LICENSES/DarkMode-MIT.txt and LICENSES/PolyHook-2.0-MIT.txt. |
 | MD5 implementation | PowerEditor/src/MISC/md5 | RSA Data Security, Inc. MD5 Message-Digest Algorithm, including derived implementation. Original RSA notice is included in LICENSES/BUNDLED_SOURCE_NOTICES.txt. |
 | SHA implementations, dark-mode helpers, and other embedded contributions | PowerEditor/src | See the authors' original per-file notices, also collected in LICENSES/BUNDLED_SOURCE_NOTICES.txt. |
-| Markdown-plus-plus UDLs | PowerEditor/Packaging/NppPro/assets/userDefineLangs | MIT; Edditoria. See LICENSES/Markdown-plus-plus-MIT.txt. |
-| Theme resources | PowerEditor/installer/themes and the packaged NppPro.xml | Original theme authors retain their rights. DarkModeDefault, Zenburn, and the derived NoteX palette use GPL v2. Other themes carry their embedded MIT, CC BY 3.0, or other upstream notices. See LICENSES/THEME_NOTICES.txt, LICENSES/GPL-2.0.txt, and LICENSES/CC-BY-3.0.txt. |
-| Inter 4.001 | PowerEditor/Packaging/NppPro/assets/fonts/Inter.ttf | Copyright 2016 The Inter Project Authors; SIL Open Font License 1.1. Complete notice beside the font. |
-| JetBrains Mono 2.211 | PowerEditor/Packaging/NppPro/assets/fonts/JetBrainsMono.ttf | Copyright 2020 The JetBrains Mono Project Authors; SIL Open Font License 1.1. Complete notice beside the font. |
+| Markdown-plus-plus UDLs | PowerEditor/Packaging/NoteX/assets/userDefineLangs | MIT; Edditoria. See LICENSES/Markdown-plus-plus-MIT.txt. |
+| Theme resources | PowerEditor/installer/themes and the packaged NoteX.xml | Original theme authors retain their rights. DarkModeDefault, Zenburn, and the derived NoteX palette use GPL v2. Other themes carry their embedded MIT, CC BY 3.0, or other upstream notices. See LICENSES/THEME_NOTICES.txt, LICENSES/GPL-2.0.txt, and LICENSES/CC-BY-3.0.txt. |
+| Inter 4.001 | PowerEditor/Packaging/NoteX/assets/fonts/Inter.ttf | Copyright 2016 The Inter Project Authors; SIL Open Font License 1.1. Complete notice beside the font. |
+| JetBrains Mono 2.211 | PowerEditor/Packaging/NoteX/assets/fonts/JetBrainsMono.ttf | Copyright 2020 The JetBrains Mono Project Authors; SIL Open Font License 1.1. Complete notice beside the font. |
 
 The fonts are unmodified bundled resources. Their copyright and full OFL texts
 are supplied beside the fonts in both source and portable distributions. The

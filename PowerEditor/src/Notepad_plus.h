@@ -21,8 +21,8 @@
 #pragma once
 
 #include "ScintillaEditView.h"
-#include "NppProTools.h"
-#include "NppProMenu.h"
+#include "NoteXTools.h"
+#include "NoteXMenu.h"
 #include "DocTabView.h"
 #include "SplitterContainer.h"
 #include "FindReplaceDlg.h"
@@ -323,8 +323,8 @@ private:
 	ContextMenu _fileSwitcherMultiFilePopupMenu;
 
 	ToolBar	_toolBar;
-	NppProTools _nppProTools;
-	NppProMenu _nppProMenu;
+	NoteXTools _noteXTools;
+	NoteXMenu _noteXMenu;
 
     StatusBar _statusBar;
 	ReBar _rebarTop;

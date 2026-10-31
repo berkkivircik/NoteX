@@ -29,8 +29,8 @@ def main():
         parts = {p.lower() for p in Path(name).parts}
         base = file.name.lower()
         if (parts & {'backup', 'plugins', 'updater', 'validation', '.git', '.claude-flow'}
-                or base.startswith('session.xml') or base.endswith(('.npppro', '.bak', '.log', '.pdb'))
-                or base in {'npppro-menu.cfg', 'notex-menu.cfg', 'shortcuts.xml', 'nativelang.xml'}):
+                or base.startswith('session.xml') or base.endswith(('.notex', '.bak', '.log', '.pdb'))
+                or base in {'notex-menu.cfg', 'notex-menu.cfg', 'shortcuts.xml', 'nativelang.xml'}):
             raise ValueError(f'Private or unreviewed runtime input: {name}')
     if {p.name for p in (root / 'localization').iterdir()} != {'english.xml', 'turkish.xml', 'spanish.xml'}:
         raise ValueError('Unexpected interface-language set.')

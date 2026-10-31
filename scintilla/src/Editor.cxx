@@ -258,7 +258,7 @@ void Editor::RefreshStyleData() {
         auto formats=pdoc->rich.state.formats;
         std::vector<bool> used(formats.size(),false);
         for(const auto& r:pdoc->rich.state.runs)used[r.style]=true;
-        for(size_t n=1;n<used.size();++n)if(!used[n])formats[n]=NppPro::Format{};
+        for(size_t n=1;n<used.size();++n)if(!used[n])formats[n]=NoteX::Format{};
         if(formats!=vs.richFormats)InvalidateStyleData();
         vs.richFormats=std::move(formats);vs.richRevision=pdoc->rich.revision;
         view.DropGraphics();
@@ -270,7 +270,7 @@ void Editor::RefreshStyleData() {
 			vs.richFormats=pdoc->rich.state.formats;vs.richRevision=pdoc->rich.revision;
             std::vector<bool> used(vs.richFormats.size(),false);
             for(const auto& r:pdoc->rich.state.runs)used[r.style]=true;
-            for(size_t n=1;n<used.size();++n)if(!used[n])vs.richFormats[n]=NppPro::Format{};
+            for(size_t n=1;n<used.size();++n)if(!used[n])vs.richFormats[n]=NoteX::Format{};
 			vs.Refresh(*surface, pdoc->tabInChars);
 		}
 		UpdateRichMetrics(vs);
@@ -2122,20 +2122,20 @@ void Editor::FilterSelections() {
 }
 
 // InsertCharacter inserts a character encoded in document code page.
-const NppPro::Format *Editor::TypingFormat() {
+const NoteX::Format *Editor::TypingFormat() {
     if (typingDocument != pdoc || sel.Count() != 1 || !sel.Empty() ||
         typingPosition != sel.MainCaret()) pendingTypingFormat.reset();
     return pendingTypingFormat ? &*pendingTypingFormat : nullptr;
 }
 
-NppPro::Format Editor::InsertionFormat(Sci::Position position) const {
+NoteX::Format Editor::InsertionFormat(Sci::Position position) const {
     const auto line = pdoc->SciLineFromPosition(position);
     if (position > pdoc->LineStart(line)) --position;
     return pdoc->rich.state.formats[pdoc->rich.at(position)];
 }
 
 Sci::Position Editor::InsertTypedString(Sci::Position position, std::string_view text) {
-    std::optional<NppPro::Format> chosen;
+    std::optional<NoteX::Format> chosen;
     if (const auto *format = TypingFormat(); format && position == typingPosition)
         chosen = *format;
     const auto length = pdoc->InsertString(position, text, chosen ? &*chosen : nullptr);
@@ -4592,7 +4592,7 @@ void Editor::CopySelectionRange(SelectionText *ss, bool allowLineCopy) {
 		if (rangesInOrder.size() == 1) {
 			auto start=rangesInOrder[0].Start().Position(), end=rangesInOrder[0].End().Position();
 			ss->richSelection.formats=pdoc->rich.state.formats;
-			for(auto r:pdoc->rich.state.runs) {r.start=std::max<NppPro::Position>(r.start,start);r.end=std::min<NppPro::Position>(r.end,end);if(r.end>r.start){r.start-=start;r.end-=start;ss->richSelection.runs.push_back(r);}}
+			for(auto r:pdoc->rich.state.runs) {r.start=std::max<NoteX::Position>(r.start,start);r.end=std::min<NoteX::Position>(r.end,end);if(r.end>r.start){r.start-=start;r.end-=start;ss->richSelection.runs.push_back(r);}}
 		}
 	}
 }
@@ -6368,8 +6368,8 @@ sptr_t Editor::BytesResult(Scintilla::sptr_t lParam, std::string_view sv) noexce
 
 sptr_t Editor::WndProc(Message iMessage, uptr_t wParam, sptr_t lParam) {
     switch (static_cast<unsigned>(iMessage)) {
-    case NppPro::GetFormat: {
-        auto* q=reinterpret_cast<NppPro::SelectionFormat*>(lParam); if(!q) return 0;
+    case NoteX::GetFormat: {
+        auto* q=reinterpret_cast<NoteX::SelectionFormat*>(lParam); if(!q) return 0;
         if (q->start == q->end) {
             const auto *chosen = TypingFormat();
             q->value = chosen && q->start == typingPosition ? *chosen : InsertionFormat(q->start);
@@ -6377,12 +6377,12 @@ sptr_t Editor::WndProc(Message iMessage, uptr_t wParam, sptr_t lParam) {
         } else *q=pdoc->rich.query(q->start,q->end);
         return 1;
     }
-    case NppPro::ApplyFormat: {
-        auto* c=reinterpret_cast<const NppPro::Change*>(lParam);
+    case NoteX::ApplyFormat: {
+        auto* c=reinterpret_cast<const NoteX::Change*>(lParam);
         if (!c || pdoc->IsReadOnly()) return 0;
         if (c->start == c->end) {
             if (sel.Count() != 1 || !sel.Empty() || c->start != sel.MainCaret() ||
-                c->fields > NppPro::All || c->value.mask > NppPro::All ||
+                c->fields > NoteX::All || c->value.mask > NoteX::All ||
                 c->value.family.size() > 256 || c->value.size < 600 || c->value.size > 9600) return 0;
             const auto *chosen = TypingFormat();
             auto format = chosen ? *chosen : InsertionFormat(c->start);
@@ -6395,12 +6395,12 @@ sptr_t Editor::WndProc(Message iMessage, uptr_t wParam, sptr_t lParam) {
         pendingTypingFormat.reset();
         return pdoc->ApplyRichFormat(*c);
     }
-    case NppPro::GetState: {
-        auto* s=reinterpret_cast<NppPro::State*>(lParam);if(!s)return 0;*s=pdoc->rich.state;return 1;
+    case NoteX::GetState: {
+        auto* s=reinterpret_cast<NoteX::State*>(lParam);if(!s)return 0;*s=pdoc->rich.state;return 1;
     }
-    case NppPro::SetState: {
+    case NoteX::SetState: {
         pendingTypingFormat.reset();
-        auto* s=reinterpret_cast<const NppPro::Restore*>(lParam);return s && pdoc->RestoreRichFormat(*s);
+        auto* s=reinterpret_cast<const NoteX::Restore*>(lParam);return s && pdoc->RestoreRichFormat(*s);
     }
     default: break;
     }

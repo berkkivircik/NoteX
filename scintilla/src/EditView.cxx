@@ -886,7 +886,7 @@ ColourRGBA TextBackground(const EditModel &model, const ViewStyle &vsDraw, const
 	}
     if (static_cast<unsigned>(styleMain) >= ViewStyle::richStyleBase) {
         const size_t format=(static_cast<unsigned>(styleMain)-ViewStyle::richStyleBase)/256+1;
-        if(format<vsDraw.richFormats.size() && (vsDraw.richFormats[format].mask & (NppPro::Back|NppPro::Highlight)))
+        if(format<vsDraw.richFormats.size() && (vsDraw.richFormats[format].mask & (NoteX::Back|NoteX::Highlight)))
             return vsDraw.RenderStyle(styleMain).back;
     }
 	if (background && (styleMain != StyleBraceLight) && (styleMain != StyleBraceBad)) {

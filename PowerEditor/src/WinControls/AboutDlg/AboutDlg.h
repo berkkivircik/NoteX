@@ -26,7 +26,7 @@
 #include "StaticDialog.h"
 
 #define LICENCE_TXT \
-L"NoteX 1.3.0 - modified by Berk Kivircik, October 28, 2026.\r\n\
+L"NoteX 1.3.1 - modified by Berk Kivircik, October 31, 2026.\r\n\
 Based on Notepad++ 8.9.8.1 by Don HO and contributors.\r\n\
 NoteX modifications: Copyright (C) 2026 Berk Kivircik.\r\n\
 Corresponding source: https://github.com/berkkivircik/NoteX\r\n\

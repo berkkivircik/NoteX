@@ -1,8 +1,8 @@
 // Copyright (C) 2026 Berk Kivircik.
 // SPDX-License-Identifier: GPL-3.0-only
-// Created for NppPro/NoteX; publication date: 2026-10-28.
+// Created for NoteX; publication date: 2026-10-28.
 
-// NppPro per-range formatting. Independent of lexer styles and file encoding.
+// NoteX per-range formatting. Independent of lexer styles and file encoding.
 #pragma once
 #include <algorithm>
 #include <cstdint>
@@ -12,8 +12,17 @@
 #include <string>
 #include <vector>
 
-namespace NppPro
+namespace NoteX
 {
+// Previous release identifiers are read-only compatibility data, not output names.
+inline constexpr char previousWireMagic[8] = {78, 80, 80, 80, 82, 79, 49, 0};
+inline std::wstring previousBrand() { return {78, 112, 112, 80, 114, 111}; }
+inline std::wstring previousSidecarExtension() {
+    auto name = previousBrand();
+    for (auto &c : name) if (c >= L'A' && c <= L'Z') c = static_cast<wchar_t>(c + L'a' - L'A');
+    return L"." + name;
+}
+inline std::wstring previousClipboardName() { return previousBrand() + L".RichText.v1"; }
 using Position = std::int64_t;
 enum Field : unsigned
 {
@@ -97,7 +106,7 @@ struct Restore
 // Versioned bounded wire format shared by sidecars and the private clipboard type.
 inline std::string encode(const State &s)
 {
-    std::string out("NPPPRO1\0", 8);
+    std::string out("NOTEX01\0", 8);
     auto number = [&](std::uint64_t n)
     {
         for (int i = 0; i < 8; ++i)
@@ -126,7 +135,8 @@ inline std::string encode(const State &s)
 }
 inline bool decode(const std::string &in, State &result, Position length)
 {
-    if (in.size() < 24 || in.compare(0, 8, std::string("NPPPRO1\0", 8)))
+    if (in.size() < 24 || (in.compare(0, 8, std::string("NOTEX01\0", 8)) &&
+        in.compare(0, 8, std::string(previousWireMagic, 8))))
         return false;
     size_t p = 8;
     bool ok = true;
@@ -346,4 +356,4 @@ class Formatting
         return q;
     }
 };
-} // namespace NppPro
+} // namespace NoteX

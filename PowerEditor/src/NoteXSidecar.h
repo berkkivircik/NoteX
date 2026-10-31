@@ -1,16 +1,16 @@
 // Copyright (C) 2026 Berk Kivircik.
 // SPDX-License-Identifier: GPL-3.0-only
-// Created for NppPro/NoteX; publication date: 2026-10-28.
+// Created for NoteX; publication date: 2026-10-28.
 
 #pragma once
 #include <windows.h>
 #include "MISC/sha2/sha-256.h"
-#include "NppProFormat.h"
+#include "NoteXFormat.h"
 #include "Scintilla.h"
 #include <array>
 #include <atomic>
 
-namespace NppPro
+namespace NoteX
 {
 inline std::array<unsigned char, 32> textDigest(HWND editor)
 {
@@ -20,13 +20,16 @@ inline std::array<unsigned char, 32> textDigest(HWND editor)
     calc_sha_256(hash.data(), text, length);
     return hash;
 }
-inline std::wstring sidecarPath(const wchar_t *file) { return std::wstring(file) + L".npppro"; }
+inline std::wstring sidecarPath(const wchar_t *file) { return std::wstring(file) + L".notex"; }
+inline std::wstring previousSidecarPath(const wchar_t *file) { return std::wstring(file) + previousSidecarExtension(); }
+inline bool validSidecarMagic(const char *magic) { return memcmp(magic, "NOTEXSC1", 8) == 0 || memcmp(magic, "NPPSIDE1", 8) == 0; }
 inline bool saveSidecar(HWND editor, const wchar_t *file)
 {
     State state;
     SendMessage(editor, GetState, 0, reinterpret_cast<LPARAM>(&state));
     auto path = sidecarPath(file);
-    if (state.runs.empty() && GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES)
+    if (state.runs.empty() && GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES &&
+        GetFileAttributesW(previousSidecarPath(file).c_str()) == INVALID_FILE_ATTRIBUTES)
         return true;
     // Never replace an unrelated file occupying the companion filename.
     HANDLE existing =
@@ -36,7 +39,7 @@ inline bool saveSidecar(HWND editor, const wchar_t *file)
         char magic[8]{};
         DWORD read = 0;
         bool ours =
-            ReadFile(existing, magic, 8, &read, nullptr) && read == 8 && memcmp(magic, "NPPSIDE1", 8) == 0;
+            ReadFile(existing, magic, 8, &read, nullptr) && read == 8 && validSidecarMagic(magic);
         CloseHandle(existing);
         if (!ours)
         {
@@ -62,7 +65,7 @@ inline bool saveSidecar(HWND editor, const wchar_t *file)
         compact.runs.push_back(r);
     }
     auto hash = textDigest(editor);
-    std::string bytes = "NPPSIDE1";
+    std::string bytes = "NOTEXSC1";
     bytes.append(reinterpret_cast<const char *>(hash.data()), hash.size());
     bytes += encode(compact);
     static std::atomic<unsigned> serial{0};
@@ -93,7 +96,13 @@ inline void loadSidecar(HWND editor, const wchar_t *file)
 {
     Restore restore;
     SendMessage(editor, SetState, 0, reinterpret_cast<LPARAM>(&restore));
-    auto path = sidecarPath(file);
+    const auto currentPath = sidecarPath(file);
+    auto path = currentPath;
+    bool previousFile = false;
+    if (GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES) {
+        path = previousSidecarPath(file);
+        previousFile = true;
+    }
     HANDLE h = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
     if (h == INVALID_HANDLE_VALUE)
         return;
@@ -109,16 +118,19 @@ inline void loadSidecar(HWND editor, const wchar_t *file)
     }
     CloseHandle(h);
     auto hash = textDigest(editor);
-    ok = ok && bytes.compare(0, 8, "NPPSIDE1") == 0 && memcmp(bytes.data() + 8, hash.data(), 32) == 0;
+    ok = ok && validSidecarMagic(bytes.data()) && memcmp(bytes.data() + 8, hash.data(), 32) == 0;
     if (ok)
         ok = decode(bytes.substr(40), restore.state, SendMessage(editor, SCI_GETLENGTH, 0, 0));
-    if (ok)
+    if (ok) {
         SendMessage(editor, SetState, 0, reinterpret_cast<LPARAM>(&restore));
+        // Rename only a validated companion, without replacing a newer file.
+        if (previousFile) MoveFileExW(path.c_str(), currentPath.c_str(), MOVEFILE_WRITE_THROUGH);
+    }
     else
         MessageBoxW(
             GetAncestor(editor, GA_ROOT),
-            (L"Biçim dosyası geçersiz veya metin değişmiş. Yanlış aralıklara biçim uygulanmadı.\n\n" + path)
+            (L"BiÃ§im dosyasÄ± geÃ§ersiz veya metin deÄŸiÅŸmiÅŸ. YanlÄ±ÅŸ aralÄ±klara biÃ§im uygulanmadÄ±.\n\n" + path)
                 .c_str(),
-            L"NppPro — Biçimlendirme", MB_OK | MB_ICONINFORMATION);
+            L"NoteX â€” BiÃ§imlendirme", MB_OK | MB_ICONINFORMATION);
 }
-} // namespace NppPro
+} // namespace NoteX

@@ -11,7 +11,7 @@
 
 #ifndef DOCUMENT_H
 #define DOCUMENT_H
-#include "NppProFormat.h"
+#include "NoteXFormat.h"
 
 namespace Scintilla::Internal {
 
@@ -298,9 +298,9 @@ bool DiscardLastCombinedCharacter(std::string_view &text) noexcept;
  */
 class Document : PerLine, public Scintilla::IDocument, public Scintilla::ILoader, public Scintilla::IDocumentEditable {
 public:
-    NppPro::Formatting rich;
-    bool ApplyRichFormat(const NppPro::Change& change);
-    bool RestoreRichFormat(const NppPro::Restore& restore);
+    NoteX::Formatting rich;
+    bool ApplyRichFormat(const NoteX::Change& change);
+    bool RestoreRichFormat(const NoteX::Restore& restore);
     void RichChanged();
 	/** Used to pair watcher pointer with user data. */
 	struct WatcherWithUserData {
@@ -423,8 +423,8 @@ public:
 	void CheckReadOnly();
 	void TrimReplacement(std::string_view &text, Range &range) const noexcept;
 	bool DeleteChars(Sci::Position pos, Sci::Position len);
-	Sci::Position InsertString(Sci::Position position, const char *s, Sci::Position insertLength, const NppPro::Format *typingFormat = nullptr);
-	Sci::Position InsertString(Sci::Position position, std::string_view sv, const NppPro::Format *typingFormat = nullptr);
+	Sci::Position InsertString(Sci::Position position, const char *s, Sci::Position insertLength, const NoteX::Format *typingFormat = nullptr);
+	Sci::Position InsertString(Sci::Position position, std::string_view sv, const NoteX::Format *typingFormat = nullptr);
 	void ChangeInsertion(const char *s, Sci::Position length);
 	int SCI_METHOD AddData(const char *data, Sci_Position length) override;
 	IDocumentEditable *AsDocumentEditable() noexcept;

@@ -11,7 +11,7 @@
 
 #ifndef VIEWSTYLE_H
 #define VIEWSTYLE_H
-#include "NppProFormat.h"
+#include "NoteXFormat.h"
 
 namespace Scintilla::Internal {
 
@@ -121,7 +121,7 @@ public:
 	std::vector<Style> styles;
     static constexpr unsigned richStyleBase = 0x40000000U;
     std::vector<Style> richStyles;
-    std::vector<NppPro::Format> richFormats;
+    std::vector<NoteX::Format> richFormats;
     std::uint64_t richRevision = static_cast<std::uint64_t>(-1);
     unsigned RenderIndex(unsigned base, unsigned format) const noexcept {
         return format && format < richFormats.size() ? richStyleBase + (format-1)*256 + base : base;

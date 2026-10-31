@@ -1,3 +1,5 @@
+// Modified for NoteX on 2026-10-31: migrate the previous theme name without overwriting user data.
+#include "NoteXFormat.h"
 // This file is part of Notepad++ project
 // Copyright (C)2021 Don HO <don.h@free.fr>
 
@@ -7050,6 +7052,15 @@ void NppParameters::feedGUIParameters(const NppXml::Element& element)
 			auto& darkThemeName = darkDefaults._xmlFileName;
 			auto& darkTbInfo = darkDefaults._tbIconInfo;
 			darkThemeName = string2wstring(NppXml::attribute(childNode, "darkThemeName", "DarkModeDefault.xml"));
+            if (darkThemeName == NoteX::previousBrand() + L".xml") {
+                for (auto directory : {_nppPath, _userPath}) {
+                    pathAppend(directory, L"themes\\");
+                    auto previous = directory + darkThemeName;
+                    auto current = directory + L"NoteX.xml";
+                    if (!doesFileExist(current.c_str())) MoveFileExW(previous.c_str(), current.c_str(), MOVEFILE_WRITE_THROUGH);
+                }
+                darkThemeName = L"NoteX.xml";
+            }
 			if (darkThemeName.empty())
 				darkThemeName = L"DarkModeDefault.xml";
 			darkTbInfo._tbIconSet = getRangeDefaultAttribute(childNode, "darkToolBarIconSet", TB_SMALL, TB_STANDARD, darkTbInfo._tbIconSet);

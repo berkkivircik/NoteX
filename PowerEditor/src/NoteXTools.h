@@ -1,10 +1,12 @@
 // Copyright (C) 2026 Berk Kivircik.
 // SPDX-License-Identifier: GPL-3.0-only
-// Created for NppPro/NoteX; publication date: 2026-10-28.
+// Created for NoteX; publication date: 2026-10-28.
+
+// Modified for NoteX: 2026-10-29; clear inactive font-combo selections.
 
 #pragma once
 #include "NppDarkMode.h"
-#include "NppProFormat.h"
+#include "NoteXFormat.h"
 #include "ScintillaEditView.h"
 #include "dpiManagerV2.h"
 #include <cmath>
@@ -16,14 +18,14 @@
 #include <windows.h>
 
 // A native toolbar: commands always target the active Scintilla document.
-class NppProTools {
+class NoteXTools {
   HWND window = nullptr, owner = nullptr, tooltip = nullptr;
   ScintillaEditView **view = nullptr;
   HFONT font = nullptr;
   HBRUSH background = nullptr;
   std::vector<HWND> controls;
-  NppPro::SelectionFormat current;
-  NppPro::Format painter;
+  NoteX::SelectionFormat current;
+  NoteX::Format painter;
   bool hasPainter = false, updating = false;
   int panelHeight = 40, scale = 96, hovered = 0, listState = 0;
   bool mixedList = false;
@@ -88,7 +90,7 @@ class NppProTools {
   }
   static LRESULT CALLBACK comboProc(HWND h, UINT m, WPARAM w, LPARAM l,
                                     UINT_PTR, DWORD_PTR data) {
-    auto self = reinterpret_cast<NppProTools *>(data);
+    auto self = reinterpret_cast<NoteXTools *>(data);
     if (m == WM_KEYDOWN && w == VK_RETURN) {
       int parentID = GetDlgCtrlID(GetParent(h));
       self->command(parentID == Size || parentID == Family ? parentID
@@ -103,7 +105,7 @@ class NppProTools {
   }
   static LRESULT CALLBACK buttonProc(HWND h, UINT m, WPARAM w, LPARAM l,
                                      UINT_PTR, DWORD_PTR data) {
-    auto self = reinterpret_cast<NppProTools *>(data);
+    auto self = reinterpret_cast<NoteXTools *>(data);
     // Owner-drawn buttons paint their complete background in draw(). Do not
     // expose the standard button's white erase between notification bursts.
     if (m == WM_ERASEBKGND)
@@ -122,9 +124,9 @@ class NppProTools {
   }
   static LRESULT CALLBACK proc(HWND h, UINT m, WPARAM w, LPARAM l) {
     auto self =
-        reinterpret_cast<NppProTools *>(GetWindowLongPtr(h, GWLP_USERDATA));
+        reinterpret_cast<NoteXTools *>(GetWindowLongPtr(h, GWLP_USERDATA));
     if (m == WM_NCCREATE) {
-      self = static_cast<NppProTools *>(
+      self = static_cast<NoteXTools *>(
           reinterpret_cast<CREATESTRUCT *>(l)->lpCreateParams);
       SetWindowLongPtr(h, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(self));
     }
@@ -197,19 +199,19 @@ class NppProTools {
   unsigned field(int id) const {
     switch (id) {
     case Bold:
-      return NppPro::Bold;
+      return NoteX::Bold;
     case Italic:
-      return NppPro::Italic;
+      return NoteX::Italic;
     case Underline:
-      return NppPro::Underline;
+      return NoteX::Underline;
     case Strike:
-      return NppPro::Strike;
+      return NoteX::Strike;
     case Fore:
-      return NppPro::Fore;
+      return NoteX::Fore;
     case Back:
-      return NppPro::Back;
+      return NoteX::Back;
     case Highlight:
-      return NppPro::Highlight;
+      return NoteX::Highlight;
     default:
       return 0;
     }
@@ -367,16 +369,16 @@ class NppProTools {
     DeleteObject(pen);
     DeleteObject(brush);
   }
-  void apply(const NppPro::Format &f, unsigned fields) {
+  void apply(const NoteX::Format &f, unsigned fields) {
     sci(SCI_BEGINUNDOACTION);
     auto count = sci(SCI_GETSELECTIONS);
     for (LRESULT i = 0; i < count; ++i) {
-      NppPro::Change c;
+      NoteX::Change c;
       c.start = sci(SCI_GETSELECTIONNSTART, i);
       c.end = sci(SCI_GETSELECTIONNEND, i);
       c.value = f;
       c.fields = fields;
-      sci(NppPro::ApplyFormat, 0, reinterpret_cast<LPARAM>(&c));
+      sci(NoteX::ApplyFormat, 0, reinterpret_cast<LPARAM>(&c));
     }
     sci(SCI_ENDUNDOACTION);
   }
@@ -466,8 +468,8 @@ class NppProTools {
       if (!*text)
         return;
       f.family = utf8(text);
-      f.mask |= NppPro::Family;
-      apply(f, NppPro::Family);
+      f.mask |= NoteX::Family;
+      apply(f, NoteX::Family);
     } else if (id == Size) {
       GetWindowTextW(controls[Size - 1], text, 256);
       wchar_t *end = nullptr;
@@ -478,8 +480,8 @@ class NppProTools {
         return;
       }
       f.size = static_cast<int>(size * 100);
-      f.mask |= NppPro::Size;
-      apply(f, NppPro::Size);
+      f.mask |= NoteX::Size;
+      apply(f, NoteX::Size);
     } else if (id >= Bold && id <= Strike) {
       bool on = (current.mixed & bit) || !checked(id);
       f.mask |= bit;
@@ -514,12 +516,12 @@ class NppProTools {
       list(id == Numbers);
     else if (id == CopyFormat) {
       painter = current.value;
-      painter.mask = NppPro::All;
+      painter.mask = NoteX::All;
       hasPainter = true;
     } else if (id == PasteFormat && hasPainter)
-      apply(painter, NppPro::All);
+      apply(painter, NoteX::All);
     else if (id == Clear)
-      apply(NppPro::Format{}, NppPro::All);
+      apply(NoteX::Format{}, NoteX::All);
     SetFocus(editor());
     sync();
   }
@@ -545,7 +547,7 @@ public:
     WNDCLASSW wc{};
     wc.lpfnWndProc = proc;
     wc.hInstance = instance;
-    wc.lpszClassName = L"NppProFormattingToolbar";
+    wc.lpszClassName = L"NoteXFormattingToolbar";
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     RegisterClassW(&wc);
     window = CreateWindowExW(0, wc.lpszClassName, L"Text formatting",
@@ -680,15 +682,15 @@ public:
     const bool previousMixedList = mixedList;
     current.start = sci(SCI_GETSELECTIONSTART);
     current.end = sci(SCI_GETSELECTIONEND);
-    sci(NppPro::GetFormat, 0, reinterpret_cast<LPARAM>(&current));
+    sci(NoteX::GetFormat, 0, reinterpret_cast<LPARAM>(&current));
     for (LRESULT i = 1; i < sci(SCI_GETSELECTIONS); ++i) {
-      NppPro::SelectionFormat other;
+      NoteX::SelectionFormat other;
       other.start = sci(SCI_GETSELECTIONNSTART, i);
       other.end = sci(SCI_GETSELECTIONNEND, i);
-      sci(NppPro::GetFormat, 0, reinterpret_cast<LPARAM>(&other));
+      sci(NoteX::GetFormat, 0, reinterpret_cast<LPARAM>(&other));
       current.mixed |= other.mixed;
-      for (unsigned bit = 1; bit <= NppPro::Highlight; bit <<= 1) {
-        NppPro::Format a, b;
+      for (unsigned bit = 1; bit <= NoteX::Highlight; bit <<= 1) {
+        NoteX::Format a, b;
         a.merge(current.value, bit);
         b.merge(other.value, bit);
         if (!(a == b))
@@ -732,24 +734,24 @@ public:
     if (current.start == current.end && stylePosition > sci(SCI_POSITIONFROMLINE, first)) --stylePosition;
     auto style = sci(SCI_GETSTYLEAT, stylePosition);
     auto &f = current.value;
-    if (!(f.mask & NppPro::Bold))
+    if (!(f.mask & NoteX::Bold))
       f.bold = sci(SCI_STYLEGETBOLD, style) != 0;
-    if (!(f.mask & NppPro::Italic))
+    if (!(f.mask & NoteX::Italic))
       f.italic = sci(SCI_STYLEGETITALIC, style) != 0;
-    if (!(f.mask & NppPro::Underline))
+    if (!(f.mask & NoteX::Underline))
       f.underline = sci(SCI_STYLEGETUNDERLINE, style) != 0;
-    if (!(f.mask & NppPro::Family)) {
+    if (!(f.mask & NoteX::Family)) {
       char name[256]{};
       sci(SCI_STYLEGETFONT, style, reinterpret_cast<LPARAM>(name));
       f.family = name;
     }
-    if (!(f.mask & NppPro::Size))
+    if (!(f.mask & NoteX::Size))
       f.size = static_cast<int>(sci(SCI_STYLEGETSIZEFRACTIONAL, style));
-    if (!(f.mask & NppPro::Fore))
+    if (!(f.mask & NoteX::Fore))
       f.fore = static_cast<unsigned>(sci(SCI_STYLEGETFORE, style));
-    if (!(f.mask & NppPro::Back))
+    if (!(f.mask & NoteX::Back))
       f.back = static_cast<unsigned>(sci(SCI_STYLEGETBACK, style));
-    if (!(f.mask & NppPro::Highlight))
+    if (!(f.mask & NoteX::Highlight))
       f.highlight = f.back;
     auto name = wide(f.family);
     auto updateText = [](HWND control, const wchar_t *value) {
@@ -757,11 +759,16 @@ public:
       GetWindowTextW(control, existing, 256);
       if (wcscmp(existing, value) != 0)
         SetWindowTextW(control, value);
+      // Native combo boxes may select text during programmatic updates. This
+      // sync runs only outside the toolbar, so keep inactive values unselected.
+      const auto selection = SendMessageW(control, CB_GETEDITSEL, 0, 0);
+      if (LOWORD(selection) != HIWORD(selection))
+        SendMessageW(control, CB_SETEDITSEL, 0, MAKELPARAM(-1, 0));
     };
-    updateText(controls[0], (current.mixed & NppPro::Family) ? L"" : name.c_str());
+    updateText(controls[0], (current.mixed & NoteX::Family) ? L"" : name.c_str());
     wchar_t size[40]{};
     swprintf_s(size, L"%g", f.size / 100.0);
-    updateText(controls[1], (current.mixed & NppPro::Size) ? L"" : size);
+    updateText(controls[1], (current.mixed & NoteX::Size) ? L"" : size);
     const bool appearanceChanged = !(previousValue == current.value) ||
         previousMixed != current.mixed || previousList != listState || previousMixedList != mixedList;
     bool writable = !sci(SCI_GETREADONLY),

@@ -1,14 +1,14 @@
 # NoteX
 
 NoteX is a portable Windows text and code editor based on Notepad++ 8.9.8.1.
-Previously developed as NppPro, it adds visual text formatting, a redesigned
+It adds visual text formatting, a redesigned
 toolbar, customizable menus, and formatting-aware session recovery.
 This is an independent modified distribution maintained by Berk Kivircik.
 
 ## Download and run
 
-Download `NoteX-1.3.0-portable-x64.zip` from the
-[1.3.0 release](https://github.com/berkkivircik/NoteX/releases/tag/v1.3.0),
+Download `NoteX-1.3.1-portable-x64.zip` from the
+[1.3.1 release](https://github.com/berkkivircik/NoteX/releases/tag/v1.3.1),
 extract it to a writable folder, and run `NoteX.exe`. No installer is required.
 The public package starts with a fresh profile and no documents or session history.
 Windows x64 is required. This release is unsigned.
@@ -23,8 +23,8 @@ Windows x64 is required. This release is unsigned.
 - Use English, Turkish, or Spanish interface translations; syntax highlighting
   support is independent of the interface language.
 
-Formatting is stored separately in `.npppro` companion files. Legacy internal
-names and configuration filenames remain compatible with NppPro.
+Formatting is stored separately in `.notex` companion files. Previous portable-release companions and menu settings are migrated without
+resetting document formatting or menu preferences.
 The package uses GDI rendering and disables upstream automatic updates.
 Optional third-party plugins and the upstream updater are not bundled in this
 public release. They are not required for the editor's built-in features.
@@ -33,7 +33,7 @@ public release. They are not required for the editor's built-in features.
 
 The repository includes the modified editor, Scintilla, Lexilla, Boost.Regex,
 build scripts, tests, and portable packaging inputs. See [BUILD.md](BUILD.md).
-The `v1.3.0` tag and `NoteX-1.3.0-source.zip` release asset identify the source
+The `v1.3.1` tag and `NoteX-1.3.1-source.zip` release asset identify the source
 for the matching portable binary. Do not substitute upstream Notepad++ source
 or a different NoteX revision when redistributing this binary.
 
@@ -55,3 +55,14 @@ Separate components and fonts retain their own license terms.
 NoteX is not an official Notepad++ release and is not endorsed by the upstream
 project. Report NoteX issues in this repository. Upstream documentation is
 retained in the `UPSTREAM_*.md` files for reference.
+
+## Upgrading an existing portable installation
+
+Close the application normally and back up the complete existing directory.
+Keep the same installation path. Preserve `config.xml`, `session.xml*`, `backup/`,
+`.notex` companions, menu settings, user shortcuts, translations, and customized
+syntax/theme files. Replace application files without deleting the profile.
+The fresh-install ZIP contains default configuration; do not overwrite a user's
+configuration with those defaults. Earlier companion filenames are accepted
+and migrated when the corresponding document is loaded. A current companion is
+preferred when both versions exist; conflicting files are never overwritten.

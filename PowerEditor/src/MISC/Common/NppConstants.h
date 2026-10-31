@@ -107,7 +107,7 @@ inline constexpr bool fold_collapse = false;
 
 inline constexpr int MODEVENTMASK_OFF = 0;
 
-// Persistent NppPro formatting uses tagged ChangeStyle notifications; without
+// Persistent NoteX formatting uses tagged ChangeStyle notifications; without
 // these the snapshot tracker misses format-only edits after its previous save.
 inline constexpr unsigned long NPP_SCINTILLA_MODEVENTMASK = SC_MOD_DELETETEXT | SC_MOD_INSERTTEXT |
 	SC_PERFORMED_UNDO | SC_PERFORMED_REDO | SC_MOD_CHANGEINDICATOR | SC_MOD_CHANGESTYLE;

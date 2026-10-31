@@ -636,7 +636,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance
 
 	bool TheFirstOne = true;
 	::SetLastError(NO_ERROR);
-	::CreateMutex(NULL, false, L"NppProInstance");
+	::CreateMutex(NULL, false, L"NoteXInstance");
 	if (::GetLastError() == ERROR_ALREADY_EXISTS)
 		TheFirstOne = false;
 

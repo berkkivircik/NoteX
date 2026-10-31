@@ -1,8 +1,19 @@
 # Changelog
 
+## 1.3.1 - 2026-10-31
+
+- Complete the NoteX naming migration across source, namespaces, classes, native
+  window identities, filenames, themes, scripts, tests, and package inputs.
+- Write formatting companions with the `.notex` extension and NoteX signatures.
+- Read previous companions and rich clipboard payloads, and migrate valid
+  companion filenames without rewriting text or overwriting current companions.
+- Migrate the previous menu settings filename and theme preference.
+- Include the fix for selected-looking inactive font-family and font-size fields.
+- Preserve original upstream copyright and license notices.
+
 ## 1.3.0 - 2026-10-28
 
-First public NoteX release of the previously developed NppPro editor.
+First public NoteX editor release.
 Based on Notepad++ 8.9.8.1.
 
 - Publish the complete modified editor source and build/packaging scripts.
@@ -18,5 +29,5 @@ Based on Notepad++ 8.9.8.1.
 - Build a fresh public profile without personal documents, histories, screenshots,
   validation logs, optional plugin DLLs, or the upstream updater.
 
-The earlier NppPro feature work is summarized here; this date identifies its
+The earlier NoteX feature work is summarized here; this date identifies its
 NoteX publication and does not claim that all features were authored on one day.

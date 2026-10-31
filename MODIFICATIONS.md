@@ -1,7 +1,7 @@
 # NoteX modification notice
 
-Modified distribution: NoteX 1.3.0 (formerly NppPro).
-Modifier: Berk Kivircik. Publication date: October 28, 2026.
+Modified distribution: NoteX 1.3.1.
+Modifier: Berk Kivircik. Latest modification date: October 31, 2026.
 NoteX modifications: Copyright (C) 2026 Berk Kivircik.
 The modified work as a whole is distributed under GNU GPL version 3.
 Original copyright, license, and warranty notices remain in place.
@@ -25,7 +25,7 @@ snapshot recovery integration, custom menu ordering/visibility, and updated tabs
 and toolbar presentation. Scintilla changes implement style storage, edit tracking,
 line/caret metrics, and rendering. Editor web-search commands are disabled.
 The NoteX publication updates branding, legal notices, build discovery, and clean
-packaging. Legacy `.npppro` files and menu settings remain compatible.
+packaging. Legacy `.notex` files and menu settings remain compatible.
 
 ## Modified upstream code and project files
 
@@ -72,12 +72,12 @@ These files contain dated NoteX notices in addition to their original notices:
 
 ## Added implementation and support files
 
-- `PowerEditor/src/NppProMenu.h`: menu customization and persistence.
-- `PowerEditor/src/NppProSidecar.h`: formatting companion-file persistence.
-- `PowerEditor/src/NppProTools.h`: formatting controls and editing commands.
-- `scintilla/include/NppProFormat.h`: formatting model and serialization.
-- `PowerEditor/Test/NppPro/`: native tests, clean build, and smoke scripts.
-- `PowerEditor/Packaging/NppPro/`: clean package recipe and reviewed runtime assets.
+- `PowerEditor/src/NoteXMenu.h`: menu customization and persistence.
+- `PowerEditor/src/NoteXSidecar.h`: formatting companion-file persistence.
+- `PowerEditor/src/NoteXTools.h`: formatting controls and editing commands.
+- `scintilla/include/NoteXFormat.h`: formatting model and serialization.
+- `PowerEditor/Test/NoteX/`: native tests, clean build, and smoke scripts.
+- `PowerEditor/Packaging/NoteX/`: clean package recipe and reviewed runtime assets.
 - Root documentation, licenses, release instructions, and privacy exclusions.
 
 Modified source files identify this publication date. Earlier individual edit
@@ -97,3 +97,7 @@ The repository root LICENSE uses the standard GPLv3 text for license detection.
 The original Notepad++ license file, including its copyright preamble, is retained
 verbatim at LICENSES/Notepad-plus-plus-LICENSE.txt. The v1.3.0 release tag remains
 unchanged and continues to identify its exact published source and artifacts.
+
+The 1.3.1 naming migration also changes Parameters.cpp and the progress-window
+class identifier in FindReplaceDlg.cpp. Previous formatting wire versions and
+clipboard payloads remain readable; new output uses NoteX names and signatures.

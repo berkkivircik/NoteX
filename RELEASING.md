@@ -10,7 +10,7 @@
    third-party plugin DLLs and the upstream updater. Do not add them without
    reviewing their licenses and providing any required matching source.
 4. Tag the exact source revision used for the build. Create a source archive
-   with `git archive --format=zip --prefix=NoteX-1.3.0/ -o NoteX-1.3.0-source.zip v1.3.0`.
+   with `git archive --format=zip --prefix=NoteX-1.3.1/ -o NoteX-1.3.1-source.zip v1.3.1`.
    Include the complete source archive alongside the portable ZIP in the release.
 5. Publish SHA256SUMS.txt and release notes identifying the source tag and commit,
    license, changes, prerequisites, validation scope, and unsigned status.

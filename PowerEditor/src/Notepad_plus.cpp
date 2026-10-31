@@ -229,7 +229,7 @@ LRESULT Notepad_plus::init(HWND hwnd)
 	_pNonDocTab = &_subDocTab;
 	_pNonEditView = &_subEditView;
 
-	NppProTools::loadFonts();
+	NoteXTools::loadFonts();
 	_mainEditView.init(_pPublicInterface->getHinst(), hwnd);
 	_subEditView.init(_pPublicInterface->getHinst(), hwnd);
 
@@ -740,7 +740,7 @@ LRESULT Notepad_plus::init(HWND hwnd)
 	_rebarBottom.init(_pPublicInterface->getHinst(), hwnd);
 	_toolBar.addToRebar(&_rebarTop);
 	_rebarTop.setIDVisible(REBAR_BAR_TOOLBAR, willBeShown);
-	_nppProTools.init(_pPublicInterface->getHinst(), hwnd, &_pEditView);
+	_noteXTools.init(_pPublicInterface->getHinst(), hwnd, &_pEditView);
 
 	checkMacroState();
 
@@ -890,7 +890,7 @@ LRESULT Notepad_plus::init(HWND hwnd)
 	activateBuffer(_mainEditView.getCurrentBufferID(), MAIN_VIEW);
 	activateBuffer(_subEditView.getCurrentBufferID(), SUB_VIEW);
 
-	_nppProMenu.init(hwnd, _mainMenuHandle, std::filesystem::path(nppParam.getUserPath()) / L"NppPro-menu.cfg");
+	_noteXMenu.init(hwnd, _mainMenuHandle, std::filesystem::path(nppParam.getUserPath()) / L"NoteX-menu.cfg");
 	_mainEditView.grabFocus();
 
 	return TRUE;
@@ -898,8 +898,8 @@ LRESULT Notepad_plus::init(HWND hwnd)
 
 void Notepad_plus::killAllChildren()
 {
-	_nppProMenu.destroy();
-	_nppProTools.destroy();
+	_noteXMenu.destroy();
+	_noteXTools.destroy();
 	_toolBar.destroy();
 	_rebarTop.destroy();
 	_rebarBottom.destroy();
@@ -4679,7 +4679,7 @@ void Notepad_plus::checkModifiedDocument(bool bCheckOnlyCurrentBuffer)
 void Notepad_plus::getMainClientRect(RECT &rc) const
 {
     _pPublicInterface->getClientRect(rc);
-	rc.top += _rebarTop.getHeight() + _nppProTools.height();
+	rc.top += _rebarTop.getHeight() + _noteXTools.height();
 	rc.bottom -= rc.top + _rebarBottom.getHeight() + _statusBar.getHeight();
 }
 
@@ -7446,7 +7446,7 @@ bool Notepad_plus::reloadLang()
 	}
 
 	_lastRecentFileList.setLangEncoding(_nativeLangSpeaker.getLangEncoding());
-	_nppProMenu.refresh();
+	_noteXMenu.refresh();
 	return true;
 }
 

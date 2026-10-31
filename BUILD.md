@@ -15,7 +15,7 @@ local user profile, plugin DLL, or installed Notepad++ is needed.
 From the repository root:
 
 ```powershell
-& .\PowerEditor\Test\NppPro\build-release.ps1
+& .\PowerEditor\Test\NoteX\build-release.ps1
 ```
 
 The script finds Visual Studio using `vswhere.exe`. Alternatively, pass
@@ -27,9 +27,9 @@ You may also open `PowerEditor/visual.net/notepadPlus.sln` and select Release/x6
 ## Create a fresh portable package
 
 ```powershell
-python .\PowerEditor\Packaging\NppPro\package.py --output .\dist\NoteX
-python .\PowerEditor\Packaging\NppPro\verify_package.py .\dist\NoteX
-python .\PowerEditor\Test\NppPro\smoke_release.py --binary .\dist\NoteX\NoteX.exe
+python .\PowerEditor\Packaging\NoteX\package.py --output .\dist\NoteX
+python .\PowerEditor\Packaging\NoteX\verify_package.py .\dist\NoteX
+python .\PowerEditor\Test\NoteX\smoke_release.py --binary .\dist\NoteX\NoteX.exe
 ```
 
 The output must be a new or empty directory. The script never copies an active
@@ -45,7 +45,7 @@ Edit the source and repeat the build and packaging commands. Extract your packag
 to a new writable directory and run `NoteX.exe`. No activation key, signature
 check, account, or installation lock is required for a modified build.
 The distributed build is not signed. Do not overwrite user settings, sessions,
-backups, documents, or `.npppro` companion files during an upgrade.
+backups, documents, or `.notex` companion files during an upgrade.
 
 ## Release the matching source
 

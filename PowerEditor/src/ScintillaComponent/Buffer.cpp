@@ -20,7 +20,7 @@
 
 
 #include "Buffer.h"
-#include "NppProSidecar.h"
+#include "NoteXSidecar.h"
 
 #include <windows.h>
 
@@ -1382,7 +1382,7 @@ bool FileManager::backupCurrentBuffer()
 							::MoveFileEx(fullpathTemp.c_str(), fullpath, MOVEFILE_REPLACE_EXISTING);
 					}
 
-					if (!NppPro::saveSidecar(_pNotepadPlus->_pEditView->getHSelf(), fullpath)) return false;
+					if (!NoteX::saveSidecar(_pNotepadPlus->_pEditView->getHSelf(), fullpath)) return false;
 					buffer->setTabCreatedTimeStringFromBakFile();
 
 					buffer->setModifiedStatus(false);
@@ -1597,7 +1597,7 @@ SavingStatus FileManager::saveBuffer(BufferID id, const wchar_t* filename, bool 
 		}
 	}
 
-	if (!NppPro::saveSidecar(_pscratchTilla->getHSelf(), fullpath))
+	if (!NoteX::saveSidecar(_pscratchTilla->getHSelf(), fullpath))
 	{
 		_pscratchTilla->execute(SCI_SETDOCPOINTER, 0, _scratchDocDefault);
 		buffer->setDirty(true);
@@ -2199,7 +2199,7 @@ bool FileManager::loadFileData(Document doc, int64_t fileSize, const wchar_t * f
 	}
 
 
-	if (success) NppPro::loadSidecar(_pscratchTilla->getHSelf(), filename);
+	if (success) NoteX::loadSidecar(_pscratchTilla->getHSelf(), filename);
 	_pscratchTilla->execute(SCI_EMPTYUNDOBUFFER);
 	_pscratchTilla->execute(SCI_SETSAVEPOINT);
 	_pscratchTilla->execute(SCI_SETUNDOCOLLECTION, true);

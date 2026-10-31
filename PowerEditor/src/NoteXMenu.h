@@ -1,10 +1,11 @@
 // Copyright (C) 2026 Berk Kivircik.
 // SPDX-License-Identifier: GPL-3.0-only
-// Created for NppPro/NoteX; publication date: 2026-10-28.
+// Created for NoteX; publication date: 2026-10-28.
 
 #pragma once
 // clang-format off
 #include <windows.h>
+#include "NoteXFormat.h"
 #include <commctrl.h>
 // clang-format on
 #include <algorithm>
@@ -18,7 +19,7 @@
 // The application's canonical menu retains its positions and handles for
 // plugins, translations and native command updates. Only this owned display
 // copy is filtered.
-class NppProMenu {
+class NoteXMenu {
 public:
   static constexpr UINT Customize = 61090;
   struct Settings {
@@ -222,9 +223,9 @@ private:
     SetFocus(tree);
   }
   static INT_PTR CALLBACK dialogProc(HWND h, UINT message, WPARAM w, LPARAM l) {
-    auto self = reinterpret_cast<NppProMenu *>(GetWindowLongPtrW(h, DWLP_USER));
+    auto self = reinterpret_cast<NoteXMenu *>(GetWindowLongPtrW(h, DWLP_USER));
     if (message == WM_INITDIALOG) {
-      self = reinterpret_cast<NppProMenu *>(l);
+      self = reinterpret_cast<NoteXMenu *>(l);
       SetWindowLongPtrW(h, DWLP_USER, l);
       self->createControls(h);
       return TRUE;
@@ -361,6 +362,11 @@ public:
     owner = window;
     source = menu;
     path = file;
+    std::error_code migrationError;
+    if (path.filename() == L"NoteX-menu.cfg" && !std::filesystem::exists(path, migrationError) && !migrationError) {
+      const auto previous = path.parent_path() / (NoteX::previousBrand() + L"-menu.cfg");
+      MoveFileExW(previous.c_str(), path.c_str(), MOVEFILE_WRITE_THROUGH);
+    }
     load();
     display = CreateMenu();
     refresh();
@@ -407,7 +413,7 @@ public:
       return false;
     std::ifstream in(path);
     std::string line;
-    if (!std::getline(in, line) || line != "NPPMENU1")
+    if (!std::getline(in, line) || (line != "NOTEXMENU1" && line != "NPPMENU1"))
       return false;
     Settings loaded;
     while (std::getline(in, line)) {
@@ -431,7 +437,7 @@ public:
     auto temporary = path;
     temporary += L".tmp-" + std::to_wstring(GetCurrentProcessId());
     std::ofstream out(temporary, std::ios::trunc);
-    out << "NPPMENU1\n";
+    out << "NOTEXMENU1\n";
     for (const auto &k : value.order)
       out << "O " << k << '\n';
     for (const auto &k : value.hidden)

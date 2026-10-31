@@ -845,7 +845,7 @@ void Notepad_plus::command(int id)
 
 		case IDM_EDIT_SEARCHONINTERNET:
 		case IDM_EDIT_CHANGESEARCHENGINE:
-			// NppPro disables sending editor text to web search. Keep the IDs inert
+			// NoteX disables sending editor text to web search. Keep the IDs inert
 			// for existing shortcuts, macros, context menus and plugin commands.
 			return;
 

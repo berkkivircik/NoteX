@@ -1216,10 +1216,10 @@ Source: PowerEditor/src/NppDarkMode.h
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ==============================================================================
-Source: PowerEditor/src/NppProMenu.h
+Source: PowerEditor/src/NoteXMenu.h
 // Copyright (C) 2026 Berk Kivircik.
 // SPDX-License-Identifier: GPL-3.0-only
-// Created for NppPro/NoteX; publication date: 2026-10-28.
+// Created for NoteX/NoteX; publication date: 2026-10-28.
 
 ==============================================================================
 Source: PowerEditor/src/NppXml.h
@@ -2095,12 +2095,12 @@ Source: scintilla/include/ILoader.h
 // The License.txt file describes the conditions under which this software may be distributed.
 
 ==============================================================================
-Source: scintilla/include/NppProFormat.h
+Source: scintilla/include/NoteXFormat.h
 // Copyright (C) 2026 Berk Kivircik.
 // SPDX-License-Identifier: GPL-3.0-only
-// Created for NppPro/NoteX; publication date: 2026-10-28.
+// Created for NoteX/NoteX; publication date: 2026-10-28.
 
-// NppPro per-range formatting. Independent of lexer styles and file encoding.
+// NoteX per-range formatting. Independent of lexer styles and file encoding.
 
 ==============================================================================
 Source: scintilla/include/Sci_Position.h
