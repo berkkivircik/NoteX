@@ -14,6 +14,11 @@
 #include "SciLexer.h"
 #include <cstdio>
 #include <cmath>
+#include "ListEditing.h"
+#import "NativeEditor.h"
+#import "TabView.h"
+#import "Chooser.h"
+#import <CommonCrypto/CommonDigest.h>
 
 static sptr_t Send(ScintillaView *view, unsigned message, uptr_t w = 0, sptr_t l = 0) {
     return [view message:message wParam:w lParam:l];
@@ -58,6 +63,8 @@ static void Alert(NSString *message) {
 @property NSStringEncoding encoding;
 @property BOOL bom;
 @property BOOL restoredDirty;
+@property BOOL pinned;
+@property NSInteger tabColor;
 - (BOOL)dirty;
 - (NSDictionary *)record;
 @end
@@ -71,7 +78,7 @@ static void Alert(NSString *message) {
     NSMutableArray *bookmarks = [NSMutableArray new];
     for (sptr_t line = Send(self.primaryEditor, SCI_MARKERNEXT, 0, 1); line >= 0; line = Send(self.primaryEditor, SCI_MARKERNEXT, line + 1, 1)) [bookmarks addObject:@(line)];
     return @{@"id":self.identifier, @"path":self.path, @"title":self.title, @"lexer":self.lexer,
-             @"customLanguage":self.customLanguage ?: @"",
+             @"customLanguage":self.customLanguage ?: @"", @"pinned":@(self.pinned), @"tabColor":@(self.tabColor),
              @"bookmarks":bookmarks, @"eol":@(Send(self.primaryEditor, SCI_GETEOLMODE)),
              @"text":text, @"format":NXCompanion(text, State(self.primaryEditor)), @"diskHash":self.diskHash,
              @"encoding":@(self.encoding), @"bom":@(self.bom), @"dirty":@(self.dirty),
@@ -124,6 +131,7 @@ static void Alert(NSString *message) {
 @property BOOL synchronizedScroll;
 @property BOOL syncingScroll;
 @property NXFileSearch *fileSearch;
+@property NSMutableArray *closedPaths;
 - (NXDocument *)current;
 - (NXDocument *)newDocument:(id)sender;
 - (void)configureLexer:(NXDocument *)doc;
@@ -185,6 +193,41 @@ static void Alert(NSString *message) {
 - (void)selfTest:(NSString *)mode;
 @end
 
+@interface NXApp (Editing)
+- (BOOL)insertEditorNewline:(ScintillaView *)view;
+- (void)toggleList:(BOOL)numbered;
+@end
+
+@interface NXApp (DocumentCommands)
+- (void)moveTabFrom:(NSInteger)from to:(NSInteger)to;
+- (void)chooseOpenDocument:(id)sender;
+- (void)tabCommand:(id)sender;
+- (NSMenu *)tabMenu:(NSInteger)index;
+- (void)closeDocuments:(id)sender;
+- (void)recentDocument:(id)sender;
+- (void)fileCommand:(id)sender;
+- (void)readOnly:(id)sender;
+@end
+@interface NXApp (CommandMenus)
+- (void)buildCommandMenus;
+@end
+@interface NXApp (TextCommands)
+- (void)selectionMode:(id)sender;
+- (void)lineOperation:(id)sender;
+- (void)caseOperation:(id)sender;
+- (void)commentOperation:(id)sender;
+- (void)insertDate:(id)sender;
+- (void)columnEditor:(id)sender;
+- (void)characterViewer:(id)sender;
+- (void)viewCommand:(id)sender;
+- (void)foldLevel:(id)sender;
+- (void)bookmarkLines:(id)sender;
+- (void)hashCommand:(id)sender;
+@end
+
+@interface NXApp (ParityTests)
+- (void)parityTests;
+@end
 @implementation NXApp
 - (NXDocument *)current {
     if(self.secondaryVisible && self.secondaryFocused && self.secondaryDocument) return self.secondaryDocument;
@@ -261,6 +304,7 @@ static void Alert(NSString *message) {
     NSApp.mainMenu = root;
     [self buildFeatureMenus];
     [self buildWorkbenchMenus];
+    [self buildCommandMenus];
 }
 - (void)buildWindow {
     self.window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 1120, 740)
@@ -318,8 +362,13 @@ static void Alert(NSString *message) {
         [self button:@"Done" action:@selector(hideFind:) tag:0]]];
     self.findBar.edgeInsets = NSEdgeInsetsMake(4, 10, 4, 10);
     self.findBar.hidden = YES;
-    self.tabs = [[NSTabView alloc] initWithFrame:NSZeroRect];
+    self.tabs = [[NXTabView alloc] initWithFrame:NSZeroRect];
     self.tabs.delegate = self;
+    __weak NXApp *tabOwner=self;
+    ((NXTabView *)self.tabs).closeDocument=^(NSInteger index){[tabOwner.tabs selectTabViewItemAtIndex:index];[tabOwner closeTab:nil];};
+    ((NXTabView *)self.tabs).moveDocument=^(NSInteger from,NSInteger to){[tabOwner moveTabFrom:from to:to];};
+    ((NXTabView *)self.tabs).chooseDocument=^{[tabOwner chooseOpenDocument:nil];};
+    ((NXTabView *)self.tabs).documentMenu=^NSMenu *(NSInteger index){return [tabOwner tabMenu:index];};
     self.status = [NSTextField labelWithString:@"UTF-8"];
     self.split = [[NSSplitView alloc] initWithFrame:NSMakeRect(0, 0, 1120, 600)];
     self.split.vertical = YES; self.split.dividerStyle = NSSplitViewDividerStyleThin;
@@ -351,6 +400,7 @@ static void Alert(NSString *message) {
         CTFontManagerRegisterFontsForURL((__bridge CFURLRef)url, kCTFontManagerScopeProcess, nil);
     }
     self.documents = [NSMutableArray new];
+    self.closedPaths=[NSMutableArray new];
     self.dark = YES; self.wrap = YES; self.restoring = YES;
     NSError *error = nil;
     NSString *profile = NSProcessInfo.processInfo.environment[@"NOTEX_PROFILE"];
@@ -387,7 +437,7 @@ static void Alert(NSString *message) {
         doc.identifier = record[@"id"]; doc.path = NXCanonicalPath(record[@"path"]); doc.title = record[@"title"];
         doc.diskHash = record[@"diskHash"]; doc.encoding = [record[@"encoding"] unsignedIntegerValue]; doc.bom = [record[@"bom"] boolValue];
         doc.lexer = record[@"lexer"];
-        doc.customLanguage=record[@"customLanguage"] ?: @"";
+        doc.customLanguage=record[@"customLanguage"] ?: @"";doc.pinned=[record[@"pinned"] boolValue];doc.tabColor=[record[@"tabColor"] integerValue];
         SetText(doc.editor, record[@"text"]);
         if ([record[@"eol"] isKindOfClass:NSNumber.class]) Send(doc.editor, SCI_SETEOLMODE, [record[@"eol"] integerValue]);
         for (NSNumber *line in record[@"bookmarks"]) if (line.longLongValue >= 0 && line.longLongValue < Send(doc.editor, SCI_GETLINECOUNT)) Send(doc.editor, SCI_MARKERADD, line.unsignedLongLongValue, 0);
@@ -434,10 +484,13 @@ static void Alert(NSString *message) {
     doc.title = [NSString stringWithFormat:@"Untitled %lu", (unsigned long)self.documents.count + 1];
     doc.diskHash = NSData.data; doc.encoding = NSUTF8StringEncoding;
     NSInteger encoding=[self.preferences[@"defaultEncoding"] integerValue];doc.encoding=encoding<2?NSUTF8StringEncoding:encoding==2?NSUTF16LittleEndianStringEncoding:NSUTF16BigEndianStringEncoding;doc.bom=encoding!=0;
-    doc.editor = [[ScintillaView alloc] initWithFrame:NSMakeRect(0, 0, 1000, 620)];
+    doc.editor = [[NXEditor alloc] initWithFrame:NSMakeRect(0, 0, 1000, 620)];
+    __weak NXApp *owner = self;
+    ((NXEditor *)doc.editor).newline = ^BOOL(ScintillaView *view) { return [owner insertEditorNewline:view]; };
     doc.editor.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     Send(doc.editor, SCI_SETCODEPAGE, SC_CP_UTF8);
     Send(doc.editor, SCI_SETEOLMODE, [self.preferences[@"defaultEOL"] integerValue]);
+    Send(doc.editor,SCI_SETMULTIPLESELECTION,1);Send(doc.editor,SCI_SETADDITIONALSELECTIONTYPING,1);Send(doc.editor,SCI_SETMULTIPASTE,SC_MULTIPASTE_EACH);
     Send(doc.editor, SCI_SETTABWIDTH, 4); Send(doc.editor, SCI_SETUSETABS, 0);
     Send(doc.editor, SCI_SETMARGINTYPEN, 0, SC_MARGIN_NUMBER); Send(doc.editor, SCI_SETMARGINWIDTHN, 0, 0);
     Send(doc.editor, SCI_SETWRAPMODE, self.wrap ? SC_WRAP_WORD : SC_WRAP_NONE);
@@ -545,10 +598,12 @@ static void Alert(NSString *message) {
 }
 - (void)tick:(id)sender {
     [self updateSecondaryChoices];
+    [(NXTabView *)self.tabs refreshTabs];
     NSError *error = nil;
     self.snapshotFailed = ![self snapshot:&error];
     if (self.snapshotFailed) self.status.stringValue = [@"Recovery snapshot failed: " stringByAppendingString:error.localizedDescription];
-    for (NXDocument *doc in self.documents) doc.tab.label = [doc.title stringByAppendingString:doc.dirty ? @" •" : @""];
+    for (NXDocument *doc in self.documents) {doc.tab.label = [NSString stringWithFormat:@"%@%@%@%@",doc.pinned?@"◆ ":@"",doc.tabColor?@[@"",@"🔴 ",@"🟠 ",@"🟢 ",@"🔵 ",@"🟣 "][MIN(5,MAX(0,doc.tabColor))]:@"",doc.title,doc.dirty?@" •":@""];doc.tab.toolTip=doc.path.length?doc.path:doc.title;}
+    [(NXTabView *)self.tabs refreshTabs];
     [self updateControls];
     [self refreshFunctions];
     [self updateUserSyntax];
@@ -607,6 +662,7 @@ static void Alert(NSString *message) {
         else Alert(@"The formatting companion does not match this document or could not be read. The text was opened without applying it; the companion was preserved.");
     }
     Send(doc.editor, SCI_EMPTYUNDOBUFFER); Send(doc.editor, SCI_SETSAVEPOINT);
+    [NSDocumentController.sharedDocumentController noteNewRecentDocumentURL:[NSURL fileURLWithPath:path]];
     [self tick:nil];
     return YES;
 }
@@ -674,6 +730,7 @@ static void Alert(NSString *message) {
     NSError *error = nil;
     if (![self snapshot:&error]) { Alert(error.localizedDescription); return; }
     if(doc==self.secondaryDocument)[self closeSecondary:nil];
+    if(doc.path.length){[self.closedPaths addObject:doc.path];if(self.closedPaths.count>100)[self.closedPaths removeObjectAtIndex:0];}
     [self.tabs removeTabViewItem:doc.tab]; [self.documents removeObject:doc];
     if (!self.documents.count) [self newDocument:nil];
     [self tick:nil];
@@ -722,19 +779,7 @@ static void Alert(NSString *message) {
     if (self.colorField == NoteX::Fore) format.fore = rgb; else format.highlight = rgb;
     [self apply:format fields:self.colorField];
 }
-- (void)makeList:(id)sender {
-    auto *view = self.current.editor;
-    auto first = Send(view, SCI_LINEFROMPOSITION, Send(view, SCI_GETSELECTIONSTART));
-    auto end=Send(view,SCI_GETSELECTIONEND),start=Send(view,SCI_GETSELECTIONSTART);
-    auto last = Send(view, SCI_LINEFROMPOSITION, end);
-    if(end>start && last>first && end==Send(view,SCI_POSITIONFROMLINE,last))--last;
-    Send(view, SCI_BEGINUNDOACTION);
-    for (auto line = last; line >= first; --line) {
-        NSString *prefix = [sender tag] ? [NSString stringWithFormat:@"%ld. ", (long)(line - first + 1)] : @"• ";
-        Send(view, SCI_INSERTTEXT, Send(view, SCI_POSITIONFROMLINE, line), reinterpret_cast<sptr_t>(prefix.UTF8String));
-    }
-    Send(view, SCI_ENDUNDOACTION); [self.window makeFirstResponder:view]; [self tick:nil];
-}
+- (void)makeList:(id)sender { [self toggleList:[sender tag] != 0]; }
 - (void)changeLanguage:(id)sender { self.current.customLanguage=self.language.selectedItem.representedObject ?: @"";if(!self.current.customLanguage.length)self.current.lexer = self.language.indexOfSelectedItem == 0 ? @"null" : self.language.titleOfSelectedItem; [self refreshEditorSettings];[self tick:nil]; }
 - (void)toggleWrap:(id)sender { self.wrap=!self.wrap; self.preferences[@"wrap"]=@(self.wrap); [self refreshEditorSettings]; [self tick:nil]; }
 - (void)toggleDark:(id)sender {
@@ -775,10 +820,15 @@ static void Alert(NSString *message) {
 - (void)source:(id)sender { [NSWorkspace.sharedWorkspace openURL:[NSURL URLWithString:@"https://github.com/berkkivircik/NoteX"]]; }
 @end
 
+#include "DocumentCommands.inc"
+#include "CommandMenus.inc"
+#include "TextCommands.inc"
+#include "Editing.inc"
 #include "Features.inc"
 #include "Workbench.inc"
 #include "FeatureTests.inc"
 #include "WorkbenchTests.inc"
+#include "ParityTests.inc"
 #include "SelfTest.inc"
 
 int main(int argc, const char *argv[]) {

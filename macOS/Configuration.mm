@@ -169,15 +169,32 @@ void NXStyleLanguage(ScintillaView *v, NSDictionary *language) {
     NSArray *keys;
     if([_kind isEqual:@"languages"])keys=@[@"name",@"extensions",@"caseSensitive",@"lineComment",@"blockOpen",@"blockClose",@"quotes",@"escape",@"foldOpen",@"foldClose",@"keywords1",@"keywords2",@"keywords3",@"keywords4",@"keywords5",@"keywords6",@"keywords7",@"keywords8"];
     else if([_kind isEqual:@"themes"])keys=@[@"name",@"background",@"foreground",@"caret",@"selection",@"lineNumbers",@"currentLine",@"keyword1",@"keyword2",@"keyword3",@"keyword4",@"keyword5",@"keyword6",@"keyword7",@"keyword8",@"string",@"comment",@"number",@"operator",@"boldKeywords",@"italicComments"];
-    else keys=@[@"font",@"fontSize",@"tabWidth",@"useTabs",@"lineNumbers",@"whitespace",@"autoIndent",@"braceMatch",@"autoComplete",@"indentGuides",@"showEOL",@"highlightLine",@"wrap",@"dark",@"caretWidth",@"blinkRate",@"edgeColumn",@"snapshotSeconds",@"defaultEncoding",@"defaultEOL"];
+    else keys=@[@"tabWidth",@"useTabs",@"autoIndent",@"braceMatch",@"autoComplete",@"font",@"fontSize",@"lineNumbers",@"whitespace",@"indentGuides",@"showEOL",@"highlightLine",@"wrap",@"dark",@"caretWidth",@"blinkRate",@"edgeColumn",@"snapshotSeconds",@"defaultEncoding",@"defaultEOL"];
     NSDictionary *labels=@{@"font":@"Default font family",@"fontSize":@"Font size (6–96)",@"tabWidth":@"Tab width (1–16)",@"useTabs":@"Indent with tabs",@"lineNumbers":@"Line numbers",@"autoIndent":@"Automatic indentation",@"braceMatch":@"Match braces",@"autoComplete":@"Word completion",@"indentGuides":@"Indent guides",@"showEOL":@"Show line endings",@"highlightLine":@"Highlight current line",@"wrap":@"Word wrap",@"dark":@"Dark appearance",@"caretWidth":@"Caret width (1–3)",@"blinkRate":@"Caret blink, ms (0–2000)",@"edgeColumn":@"Column guide (0 = off)",@"snapshotSeconds":@"Recovery interval, sec (1–60)",@"defaultEncoding":@"New files: 0 UTF8, 1 BOM, 2 LE, 3 BE",@"defaultEOL":@"New lines: 0 CRLF, 1 CR, 2 LF",@"extensions":@"Extensions (space separated)",@"lineComment":@"Line comment",@"blockOpen":@"Block comment start",@"blockClose":@"Block comment end",@"quotes":@"String quote characters",@"escape":@"Escape character",@"foldOpen":@"Fold opening token",@"foldClose":@"Fold closing token",@"caseSensitive":@"Case-sensitive keywords",@"boldKeywords":@"Bold keywords",@"italicComments":@"Italic comments"};
+    BOOL preferences=[_kind isEqual:@"preferences"];
+    NSMutableArray *rows=[NSMutableArray new];
     CGFloat height=keys.count*40+16;form.frame=NSMakeRect(0,0,540,height);
     NSUInteger index=0;for(NSString *key in keys){CGFloat y=height-40*(++index);NSTextField *label=[NSTextField labelWithString:labels[key] ?: [key capitalizedString]];label.frame=NSMakeRect(8,y,272,26);[form addSubview:label];id control;
         if([key isEqual:@"defaultEncoding"]||[key isEqual:@"defaultEOL"]){NSPopUpButton *choice=[[NSPopUpButton alloc]initWithFrame:NSZeroRect pullsDown:NO];[choice addItemsWithTitles:[key isEqual:@"defaultEncoding"]?@[@"UTF-8",@"UTF-8 with BOM",@"UTF-16 Little Endian",@"UTF-16 Big Endian"]:@[@"Windows (CRLF)",@"Classic Mac (CR)",@"Unix / macOS (LF)"]];[choice selectItemAtIndex:[record[key] integerValue]];control=choice;label.stringValue=[key isEqual:@"defaultEncoding"]?@"New document encoding":@"New document line endings";}
-        else if([record[key] isKindOfClass:NSNumber.class]&&CFGetTypeID((__bridge CFTypeRef)record[key])==CFBooleanGetTypeID()){NSButton *check=[NSButton checkboxWithTitle:@"Enabled" target:nil action:nil];check.state=[record[key] boolValue]?NSControlStateValueOn:NSControlStateValueOff;control=check;}
+        else if([record[key] isKindOfClass:NSNumber.class]&&CFGetTypeID((__bridge CFTypeRef)record[key])==CFBooleanGetTypeID()){NSButton *check=[NSButton checkboxWithTitle:preferences?@"":@"Enabled" target:nil action:nil];check.state=[record[key] boolValue]?NSControlStateValueOn:NSControlStateValueOff;control=check;}
         else if([_kind isEqual:@"themes"]&&Color(record[key])){NSColorWell *well=[NSColorWell new];unsigned n=RGB(record[key]);well.color=[NSColor colorWithSRGBRed:(n&255)/255.0 green:((n>>8)&255)/255.0 blue:((n>>16)&255)/255.0 alpha:1];control=well;}
         else {NSTextField *field=[NSTextField new];field.stringValue=[record[key] description] ?: @"";control=field;}
         [control setFrame:NSMakeRect(285,y,240,26)];[form addSubview:control];_controls[key]=control;
+        if(preferences){
+            NSDictionary *groups=@{@"tabWidth":@"Editing",@"font":@"Appearance",@"snapshotSeconds":@"Files & Recovery"};
+            if(groups[key]){NSTextField *heading=[NSTextField labelWithString:groups[key]];heading.font=[NSFont boldSystemFontOfSize:13];[rows addObject:@[heading,NSGridCell.emptyContentView]];}
+            [label removeFromSuperview];[control removeFromSuperview];[rows addObject:@[label,control]];
+            [control setAccessibilityLabel:label.stringValue];
+        }
+    }
+    if(preferences){
+        form.translatesAutoresizingMaskIntoConstraints=NO;
+        NSGridView *grid=[NSGridView gridViewWithViews:rows];grid.translatesAutoresizingMaskIntoConstraints=NO;grid.rowSpacing=8;grid.columnSpacing=16;
+        [grid columnAtIndex:0].width=245;[grid columnAtIndex:1].xPlacement=NSGridCellPlacementFill;
+        for(NSUInteger row=0;row<rows.count;++row){[grid rowAtIndex:row].yPlacement=NSGridCellPlacementCenter;[grid rowAtIndex:row].height=26;}
+        [form addSubview:grid];
+        [NSLayoutConstraint activateConstraints:@[[form.widthAnchor constraintEqualToAnchor:_form.contentView.widthAnchor],[grid.leadingAnchor constraintEqualToAnchor:form.leadingAnchor constant:8],[grid.trailingAnchor constraintEqualToAnchor:form.trailingAnchor constant:-12],[grid.topAnchor constraintEqualToAnchor:form.topAnchor constant:12],[grid.bottomAnchor constraintEqualToAnchor:form.bottomAnchor constant:-12]]];
+        [form layoutSubtreeIfNeeded];height=form.frame.size.height;
     }
     [_form.contentView scrollToPoint:NSMakePoint(0,MAX(0,height-_form.contentView.bounds.size.height))];
 }
@@ -190,16 +207,22 @@ void NXStyleLanguage(ScintillaView *v, NSDictionary *language) {
 - (void)exportRecords:(id)sender {[self stash];if(![self valid]){[NSApp presentError:NXError(@"Correct the settings before exporting.")];return;}NSSavePanel *panel=[NSSavePanel savePanel];panel.nameFieldStringValue=[NSString stringWithFormat:@"NoteX-%@.json",_kind];if([panel runModal]!=NSModalResponseOK)return;NSError *error=nil;NSData *data=[NSJSONSerialization dataWithJSONObject:@{@"schema":@1,@"kind":_kind,@"records":_records} options:NSJSONWritingPrettyPrinted error:&error];if(!data||!NXWrite(data,panel.URL.path,&error))[NSApp presentError:error];}
 - (void)importRecords:(id)sender {NSOpenPanel *panel=[NSOpenPanel openPanel];if([panel runModal]!=NSModalResponseOK)return;NSData *data=[NSData dataWithContentsOfURL:panel.URL];if(data.length>8*1024*1024){[NSApp presentError:NXError(@"The settings file exceeds 8 MB.")];return;}id root=data?[NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers error:nil]:nil;
     if(![root isKindOfClass:NSDictionary.class]||![root[@"schema"] isEqual:@1]||![root[@"kind"] isEqual:_kind]||![root[@"records"] isKindOfClass:NSArray.class]){[NSApp presentError:NXError(@"Choose a NoteX settings export of this type.")];return;}
-    NSMutableArray *old=_records;_records=root[@"records"];if(![self valid]){_records=old;[NSApp presentError:NXError(@"The imported settings are invalid.")];return;}_selected=-1;[_list reloadData];if(_records.count)[_list selectRowIndexes:[NSIndexSet indexSetWithIndex:0] byExtendingSelection:NO];else[self showRecord];
+    NSMutableArray *old=_records;_records=root[@"records"];if(![self valid]){_records=old;[NSApp presentError:NXError(@"The imported settings are invalid.")];return;}_selected=-1;[_list reloadData];if([_kind isEqual:@"preferences"]){_selected=0;[self showRecord];}else if(_records.count)[_list selectRowIndexes:[NSIndexSet indexSetWithIndex:0] byExtendingSelection:NO];else[self showRecord];
 }
 - (NSArray *)runForWindow:(NSWindow *)parent {
-    _window=[[NSWindow alloc]initWithContentRect:NSMakeRect(0,0,800,600) styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];_window.title=[_kind isEqual:@"preferences"]?@"Preferences":[_kind isEqual:@"languages"]?@"Language Editor":@"Theme Editor";_window.appearance=parent.appearance;
+    BOOL preferences=[_kind isEqual:@"preferences"];
+    _window=[[NSWindow alloc]initWithContentRect:NSMakeRect(0,0,preferences?580:800,600) styleMask:NSWindowStyleMaskTitled|NSWindowStyleMaskResizable backing:NSBackingStoreBuffered defer:NO];_window.title=[_kind isEqual:@"preferences"]?@"Preferences":[_kind isEqual:@"languages"]?@"Language Editor":@"Theme Editor";_window.appearance=parent.appearance;
     _list=[[NSTableView alloc]initWithFrame:NSZeroRect];NSTableColumn *column=[[NSTableColumn alloc]initWithIdentifier:@"name"];column.width=210;[_list addTableColumn:column];_list.headerView=nil;_list.delegate=self;_list.dataSource=self;
-    NSScrollView *left=[[NSScrollView alloc]initWithFrame:NSMakeRect(12,66,220,480)];left.documentView=_list;left.hasVerticalScroller=YES;[_window.contentView addSubview:left];
-    _form=[[NSScrollView alloc]initWithFrame:NSMakeRect(240,66,548,480)];_form.hasVerticalScroller=YES;_form.hasHorizontalScroller=YES;[_window.contentView addSubview:_form];
+    NSScrollView *left=[[NSScrollView alloc]initWithFrame:NSMakeRect(12,66,220,480)];left.documentView=_list;left.hasVerticalScroller=YES;if(!preferences)[_window.contentView addSubview:left];
+    _form=[[NSScrollView alloc]initWithFrame:NSMakeRect(240,66,548,480)];_form.hasVerticalScroller=YES;_form.hasHorizontalScroller=!preferences;[_window.contentView addSubview:_form];
     NSTextField *help=[NSTextField wrappingLabelWithString:@"Edit a draft, then Apply to save. Cancel leaves your current settings unchanged. Import replaces this draft; Export saves a portable JSON settings file."];help.frame=NSMakeRect(12,552,776,42);[_window.contentView addSubview:help];
     NSArray *names=@[@"New",@"Duplicate",@"Delete",@"Import…",@"Export…",@"Cancel",@"Apply"];SEL actions[]={@selector(add:),@selector(duplicate:),@selector(remove:),@selector(importRecords:),@selector(exportRecords:),@selector(cancel:),@selector(accept:)};
-    for(NSUInteger i=0;i<names.count;++i){NSButton *button=[NSButton buttonWithTitle:names[i] target:self action:actions[i]];button.frame=NSMakeRect(12+i*111,18,104,32);if([_kind isEqual:@"preferences"]){if(i==0)button.title=@"Reset";if(i==1||i==2)button.enabled=NO;}if(i==6)button.keyEquivalent=@"\r";if(i==5)button.keyEquivalent=@"\e";[_window.contentView addSubview:button];}
+    for(NSUInteger i=0;i<names.count;++i){NSButton *button=[NSButton buttonWithTitle:names[i] target:self action:actions[i]];button.frame=NSMakeRect(12+i*111,18,104,32);if([_kind isEqual:@"preferences"]){if(i==0)button.title=@"Reset";if(i==1||i==2)continue;}if(i==6)button.keyEquivalent=@"\r";if(i==5)button.keyEquivalent=@"\e";if(preferences){NSUInteger slot=i==0?0:i-2;button.frame=NSMakeRect(16+slot*110,16,104,30);button.autoresizingMask=NSViewMaxYMargin;}
+        [_window.contentView addSubview:button];}
+    if(preferences){
+        _window.minSize=NSMakeSize(560,420);_form.translatesAutoresizingMaskIntoConstraints=NO;help.translatesAutoresizingMaskIntoConstraints=NO;
+        [NSLayoutConstraint activateConstraints:@[[_form.leadingAnchor constraintEqualToAnchor:_window.contentView.leadingAnchor constant:16],[_form.trailingAnchor constraintEqualToAnchor:_window.contentView.trailingAnchor constant:-16],[_form.topAnchor constraintEqualToAnchor:_window.contentView.topAnchor constant:58],[_form.bottomAnchor constraintEqualToAnchor:_window.contentView.bottomAnchor constant:-58],[help.leadingAnchor constraintEqualToAnchor:_form.leadingAnchor],[help.trailingAnchor constraintEqualToAnchor:_form.trailingAnchor],[help.topAnchor constraintEqualToAnchor:_window.contentView.topAnchor constant:12],[help.heightAnchor constraintEqualToConstant:38]]];
+    }
     [_list reloadData];if(_records.count)[_list selectRowIndexes:[NSIndexSet indexSetWithIndex:0] byExtendingSelection:NO];[_window center];[NSApp runModalForWindow:_window];return _accepted?[_records copy]:nil;
 }
 @end

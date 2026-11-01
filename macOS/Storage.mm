@@ -146,7 +146,7 @@ static NSDictionary *DecodeSession(NSData *data) {
     for (id doc in documents) {
         if (![doc isKindOfClass:NSDictionary.class]) return nil;
         if(doc[@"customLanguage"]&&![doc[@"customLanguage"] isKindOfClass:NSString.class])return nil;
-        for(NSString *key in @[@"zoom",@"xOffset"])if(doc[key]&&![doc[key] isKindOfClass:NSNumber.class])return nil;
+        for(NSString *key in @[@"zoom",@"xOffset",@"pinned",@"tabColor"])if(doc[key]&&![doc[key] isKindOfClass:NSNumber.class])return nil;
         if (doc[@"eol"] && (![doc[@"eol"] isKindOfClass:NSNumber.class] || [doc[@"eol"] integerValue] < 0 || [doc[@"eol"] integerValue] > 2)) return nil;
         if (doc[@"bookmarks"]) {
             if (![doc[@"bookmarks"] isKindOfClass:NSArray.class]) return nil;

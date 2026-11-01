@@ -194,6 +194,7 @@ static void Bold24(ScintillaView *view) {
     if (imagePath.length) [[bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}] writeToFile:imagePath atomically:YES];
     [self featureTests];
     [self workbenchTests];
+    [self parityTests];
     printf("TOTAL %u passed\n", checks); fflush(stdout);
     [NSApp terminate:nil];
 }
