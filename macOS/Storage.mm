@@ -94,7 +94,7 @@ NSDictionary *NXDecodeSession(NSData *data) {
     if(root[@"secondary"]){id secondary=root[@"secondary"];if(![secondary isKindOfClass:NSDictionary.class])return nil;
         if([secondary count]){if(![secondary[@"document"] isKindOfClass:NSString.class])return nil;
             for(NSString *key in @[@"vertical",@"focused",@"synchronized",@"caret",@"anchor",@"firstLine"])if(![secondary[key] isKindOfClass:NSNumber.class])return nil;
-            for(NSString *key in @[@"ratio",@"zoom",@"xOffset"])if(secondary[key]&&![secondary[key] isKindOfClass:NSNumber.class])return nil;
+            for(NSString *key in @[@"ratio",@"zoom",@"xOffset",@"syncVertical",@"syncHorizontal"])if(secondary[key]&&![secondary[key] isKindOfClass:NSNumber.class])return nil;
         }
     }
     for (NSString *key in @[@"dark", @"wrap", @"sidebarVisible"])
@@ -147,7 +147,7 @@ NSDictionary *NXDecodeSession(NSData *data) {
         if (![doc isKindOfClass:NSDictionary.class]) return nil;
         if(doc[@"builtinLanguage"]&&![doc[@"builtinLanguage"] isKindOfClass:NSString.class])return nil;
         if(doc[@"customLanguage"]&&![doc[@"customLanguage"] isKindOfClass:NSString.class])return nil;
-        for(NSString *key in @[@"zoom",@"xOffset",@"pinned",@"tabColor"])if(doc[key]&&![doc[key] isKindOfClass:NSNumber.class])return nil;
+        for(NSString *key in @[@"zoom",@"xOffset",@"pinned",@"tabColor",@"secondaryOnly"])if(doc[key]&&![doc[key] isKindOfClass:NSNumber.class])return nil;
         if (doc[@"eol"] && (![doc[@"eol"] isKindOfClass:NSNumber.class] || [doc[@"eol"] integerValue] < 0 || [doc[@"eol"] integerValue] > 2)) return nil;
         if (doc[@"bookmarks"]) {
             if (![doc[@"bookmarks"] isKindOfClass:NSArray.class]) return nil;

@@ -171,6 +171,7 @@ BOOL NXWriteWorkspace(NSDictionary *root, NSString *path, NSError **error) {
     [self refreshRows]; [self notifyChange];
 }
 - (NSInteger)activePanel { return _mode; }
+- (void)addFolderRoot:(NSString *)path {if(![_folders containsObject:path])[_folders addObject:path];[self showPanel:4];[self refresh:nil];[self notifyChange];}
 - (void)showPanel:(NSInteger)panel { (void)self.view; [_panel selectItemAtIndex:std::clamp<NSInteger>(panel, 0, 4)]; [self panelChanged:nil]; }
 - (void)panelChanged:(id)sender { _mode = _panel.indexOfSelectedItem; [self refresh:nil]; [self notifyChange]; }
 - (void)controlTextDidChange:(NSNotification *)notification { [self refreshRows]; [_tree expandItem:nil expandChildren:YES]; }

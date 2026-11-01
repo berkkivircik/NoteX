@@ -342,6 +342,6 @@ static BOOL StringMacroMessage(unsigned message) {
     view.textContainer.containerSize = NSMakeSize(width, CGFLOAT_MAX); view.textContainer.widthTracksTextView = YES;
     [view.layoutManager ensureLayoutForTextContainer:view.textContainer];
     view.frame = NSMakeRect(0, 0, width, [view.layoutManager usedRectForTextContainer:view.textContainer].size.height + 24);
-    [[NSPrintOperation printOperationWithView:view printInfo:info] runOperation];
+    NSPrintOperation *operation=[NSPrintOperation printOperationWithView:view printInfo:info];operation.showsPrintPanel=[sender tag]!=1;[operation runOperation];
 }
 @end

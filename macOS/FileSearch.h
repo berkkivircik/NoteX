@@ -11,5 +11,6 @@ NSArray *NXSearchFiles(NSArray *inputs, NSDictionary *options, BOOL (^cancelled)
 @property(copy) NSString *(^replaceResults)(NSArray *results);
 @property(copy) void (^showBackups)(void);
 - (void)showForWindow:(NSWindow *)parent;
+- (void)showMatches:(NSArray *)matches document:(NSDictionary *)document parent:(NSWindow *)parent;
 - (void)navigateBy:(NSInteger)direction;
 @end

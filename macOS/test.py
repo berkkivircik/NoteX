@@ -47,6 +47,7 @@ with tempfile.TemporaryDirectory(prefix="notex-native-tests-") as directory:
     if os.environ.get("CI"):
         # Upgrade profiles created by both previously published native binaries.
         releases = [
+            ("v1.4.1-macos.4", "1.4.1", "ef18adf9ffeffb8e7998f0d0f523e043b8d868a018be9019a6f4e68777653071"),
             ("v1.3.2-macos.1", "1.3.2", "93b4170c541a96dcca15a60c06a2528b492613b0704acb386af0ecec808a9748"),
             ("v1.4.0-macos.3", "1.4.0", "5ee1a86269ef1e6b9ac8e8e95c59ee25d6e5c5e9c1ebd616348735d155eade90"),
             ("v1.3.3-macos.2", "1.3.3", "d6cc0f369c4ffb7b99a2c95604b74ac3b03f3464c8580d8a544fe4837002a963"),

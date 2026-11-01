@@ -5,19 +5,21 @@
     if(from<0||to<0||from>=(NSInteger)self.documents.count||to>=(NSInteger)self.documents.count||from==to)return;
     NXDocument *doc=self.documents[from];BOOL restoring=self.restoring;self.restoring=YES;
     [self.tabs removeTabViewItem:doc.tab];[self.documents removeObjectAtIndex:from];
-    [self.documents insertObject:doc atIndex:to];[self.tabs insertTabViewItem:doc.tab atIndex:to];[self.tabs selectTabViewItem:doc.tab];
+    [self.documents insertObject:doc atIndex:to];[self.tabs insertTabViewItem:doc.tab atIndex:to];[self activateDocument:doc];
     self.restoring=restoring;[self tick:nil];
 }
 - (void)chooseOpenDocument:(id)sender {
     NSMutableArray *items=[NSMutableArray new];for(NXDocument *doc in self.documents)[items addObject:[NSString stringWithFormat:@"%@%@%@",doc.title,doc.dirty?@" •":@"",doc.path.length?[@" — " stringByAppendingString:doc.path]:@""]];
-    NSInteger i=NXChoose(@"Open Documents",items,self.window);if(i>=0)[self.tabs selectTabViewItemAtIndex:i];
+    NSInteger i=NXChoose(@"Open Documents",items,self.window);if(i>=0)[self activateDocument:self.documents[i]];
 }
 - (void)tabCommand:(id)sender {
     NSInteger action=[sender tag],index=[self.documents indexOfObject:self.current];
-    if(action==0)[self.tabs selectFirstTabViewItem:nil];
-    else if(action==1)[self.tabs selectLastTabViewItem:nil];
+    if(action==0)[self activateDocument:self.documents.firstObject];
+    else if(action==1)[self activateDocument:self.documents.lastObject];
     else if(action==2)[self moveTabFrom:index to:MAX(0,index-1)];
     else if(action==3)[self moveTabFrom:index to:MIN((NSInteger)self.documents.count-1,index+1)];
+    else if(action==5)[self moveTabFrom:index to:0];
+    else if(action==6)[self moveTabFrom:index to:self.documents.count-1];
     else if(action==4)self.current.pinned=!self.current.pinned;
     else if(action>=10&&action<=15)self.current.tabColor=action-10;
     [self tick:nil];
@@ -34,11 +36,11 @@
 }
 - (void)closeDocuments:(id)sender {
     NXDocument *original=self.current;NSInteger index=[self.documents indexOfObject:original],action=[sender tag];NSArray *documents=self.documents.copy;
-    for(NSUInteger i=0;i<documents.count;++i){NXDocument *doc=documents[i];if(doc.pinned)continue;
-        BOOL close=action==0||(action==1&&doc!=original)||(action==2&&(NSInteger)i<index)||(action==3&&(NSInteger)i>index)||(action==4&&!doc.dirty);
-        if(close){[self.tabs selectTabViewItem:doc.tab];[self closeTab:nil];if([self.documents containsObject:doc])break;}
+    for(NSUInteger i=0;i<documents.count;++i){NXDocument *doc=documents[i];if(doc.pinned&&action!=5)continue;
+        BOOL close=action==5||action==0||(action==1&&doc!=original)||(action==2&&(NSInteger)i<index)||(action==3&&(NSInteger)i>index)||(action==4&&!doc.dirty);
+        if(close){[self activateDocument:doc];[self closeTab:nil];if([self.documents containsObject:doc])break;}
     }
-    if([self.documents containsObject:original])[self.tabs selectTabViewItem:original.tab];
+    if([self.documents containsObject:original])[self activateDocument:original];
 }
 - (void)recentDocument:(id)sender {
     NSArray *paths=[sender tag]?self.closedPaths:NSDocumentController.sharedDocumentController.recentDocumentURLs;
@@ -75,5 +77,5 @@
     else if(action==4){NSURL *terminal=[NSWorkspace.sharedWorkspace URLForApplicationWithBundleIdentifier:@"com.apple.Terminal"];if(terminal)[NSWorkspace.sharedWorkspace openURLs:@[url.URLByDeletingLastPathComponent] withApplicationAtURL:terminal configuration:NSWorkspaceOpenConfiguration.configuration completionHandler:nil];}
     else if(action>=5&&action<=9){NSMutableArray *values=[NSMutableArray new];if(action<=7)[values addObject:action==5?doc.path:action==6?doc.title:doc.path.stringByDeletingLastPathComponent];else for(NXDocument *item in self.documents)[values addObject:action==8?item.title:item.path];[NSPasteboard.generalPasteboard clearContents];[NSPasteboard.generalPasteboard setString:[values componentsJoinedByString:@"\n"] forType:NSPasteboardTypeString];}
 }
-- (void)readOnly:(id)sender {BOOL readOnly=!Send(self.current.editor,SCI_GETREADONLY);for(NXDocument *doc in ([sender tag]?self.documents:@[self.current]))Send(doc.primaryEditor,SCI_SETREADONLY,readOnly);[self updateControls];}
+- (void)readOnly:(id)sender {BOOL readOnly=[sender tag]?[sender tag]==1:!Send(self.current.editor,SCI_GETREADONLY);for(NXDocument *doc in ([sender tag]?self.documents:@[self.current]))Send(doc.primaryEditor,SCI_SETREADONLY,readOnly);if(self.secondaryVisible)Send(self.secondaryEditor,SCI_SETREADONLY,Send(self.secondaryDocument.primaryEditor,SCI_GETREADONLY));[self updateControls];}
 @end

@@ -7,7 +7,7 @@
     if(action==2){auto count=Send(view,SCI_GETSELECTIONS);if(count>1)Send(view,SCI_DROPSELECTIONN,count-1);return;}
     if(action==3){auto count=Send(view,SCI_GETSELECTIONS);Send(view,SCI_MULTIPLESELECTADDNEXT);if(Send(view,SCI_GETSELECTIONS)>count)Send(view,SCI_DROPSELECTIONN,Send(view,SCI_GETMAINSELECTION));return;}
     NSInteger flags=(action-10)%4;BOOL all=action>=14;NSString *text=view.selectedString;if(!text.length)return;NSError *error=nil;
-    NSArray *matches=NXSearchMatches(view.string,@{@"query":text,@"wholeWord":@(flags==0||flags>=2),@"matchCase":@(flags==1||flags==3)},&error);if(!matches){Alert(error.localizedDescription);return;}
+    NSArray *matches=NXSearchMatches(view.string,@{@"query":text,@"wholeWord":@(flags>=2),@"matchCase":@(flags==1||flags==3)},&error);if(!matches){Alert(error.localizedDescription);return;}
     auto current=Send(view,SCI_GETSELECTIONEND);NSDictionary *next=nil;
     if(all)Send(view,SCI_CLEARSELECTIONS);BOOL first=YES;
     for(NSDictionary *match in matches){auto a=[match[@"position"] longLongValue],b=a+[match[@"length"] longLongValue];if(all){Send(view,first?SCI_SETSELECTION:SCI_ADDSELECTION,b,a);first=NO;}else if(!next&&a>=current)next=match;}
@@ -46,18 +46,18 @@
     auto line=Send(view,SCI_LINEFROMPOSITION,Send(view,SCI_GETCURRENTPOS));unsigned mask=0;for(int marker=SC_MARKNUM_HISTORY_REVERTED_TO_ORIGIN;marker<=SC_MARKNUM_HISTORY_REVERTED_TO_MODIFIED;++marker)mask|=1u<<marker;
     auto found=Send(view,action>0?SCI_MARKERNEXT:SCI_MARKERPREVIOUS,action>0?line+1:line-1,mask);if(found<0)found=Send(view,action>0?SCI_MARKERNEXT:SCI_MARKERPREVIOUS,action>0?0:Send(view,SCI_GETLINECOUNT)-1,mask);if(found>=0)Send(view,SCI_GOTOLINE,found);else NSBeep();
 }
-- (void)directTab:(id)sender {NSInteger index=[sender tag]-1;if(index>=0&&index<(NSInteger)self.documents.count)[self.tabs selectTabViewItemAtIndex:index];}
+- (void)directTab:(id)sender {NSInteger index=[sender tag]-1;if(index>=0&&index<(NSInteger)self.documents.count)[self activateDocument:self.documents[index]];}
 - (void)sortTabs:(id)sender {
     NSInteger action=[sender tag];NXDocument *current=self.current;NSArray *sorted=[self.documents sortedArrayUsingComparator:^NSComparisonResult(NXDocument *a,NXDocument *b){NSInteger field=action/2;NSComparisonResult result;
         if(field==3)result=[@(Send(a.primaryEditor,SCI_GETLENGTH)) compare:@(Send(b.primaryEditor,SCI_GETLENGTH))];
         else if(field==4){NSDate *x=[NSFileManager.defaultManager attributesOfItemAtPath:a.path error:nil][NSFileModificationDate] ?: NSDate.distantPast,*y=[NSFileManager.defaultManager attributesOfItemAtPath:b.path error:nil][NSFileModificationDate] ?: NSDate.distantPast;result=[x compare:y];}
         else result=[field==0?a.title:field==1?a.path:a.path.pathExtension localizedStandardCompare:field==0?b.title:field==1?b.path:b.path.pathExtension];return action%2?(NSComparisonResult)-result:result;
-    }];BOOL restoring=self.restoring;self.restoring=YES;for(NSTabViewItem *item in self.tabs.tabViewItems.copy)[self.tabs removeTabViewItem:item];self.documents=[sorted mutableCopy];for(NXDocument *doc in self.documents)[self.tabs addTabViewItem:doc.tab];[self.tabs selectTabViewItem:current.tab];self.restoring=restoring;[self tick:nil];
+    }];BOOL restoring=self.restoring;self.restoring=YES;for(NSTabViewItem *item in self.tabs.tabViewItems.copy)[self.tabs removeTabViewItem:item];self.documents=[sorted mutableCopy];for(NXDocument *doc in self.documents)[self.tabs addTabViewItem:doc.tab];[self activateDocument:current];self.restoring=restoring;[self tick:nil];
 }
 - (void)buildNavigationMenus {
     NSMenu *edit=[NSApp.mainMenu itemWithTitle:@"Edit"].submenu,*view=[NSApp.mainMenu itemWithTitle:@"View"].submenu;
     [self item:edit title:@"Begin / End Selection" action:@selector(extendedSelection:) key:@"" tag:0];[self item:edit title:@"Begin / End Column Selection" action:@selector(extendedSelection:) key:@"" tag:1];[self item:edit title:@"Undo Last Added Selection" action:@selector(extendedSelection:) key:@"" tag:2];[self item:edit title:@"Skip Current Occurrence" action:@selector(extendedSelection:) key:@"" tag:3];
-    NSMenu *multi=[self menu:@"Multiple Selections" parent:edit];NSArray *options=@[@"Ignore Case, Whole Word",@"Match Case",@"Whole Word",@"Match Case and Whole Word"];for(int i=0;i<8;++i)[self item:multi title:[NSString stringWithFormat:@"%@ — %@",i<4?@"Next":@"All",options[i%4]] action:@selector(extendedSelection:) key:@"" tag:10+i];
+    NSMenu *multi=[self menu:@"Multiple Selections" parent:edit];NSArray *options=@[@"Ignore Case",@"Match Case",@"Whole Word",@"Match Case and Whole Word"];for(int i=0;i<8;++i)[self item:multi title:[NSString stringWithFormat:@"%@ — %@",i<4?@"Next":@"All",options[i%4]] action:@selector(extendedSelection:) key:@"" tag:10+i];
     NSArray *selected=@[@"Select and Find Next",@"Select and Find Previous",@"Volatile Find Next",@"Volatile Find Previous"];for(NSUInteger i=0;i<selected.count;++i)[self item:edit title:selected[i] action:@selector(selectedSearch:) key:@"" tag:i];
     NSMenu *styles=[self menu:@"Styled Text" parent:edit];for(NSInteger i=0;i<5;++i){NSMenu *style=[self menu:[NSString stringWithFormat:@"Style %ld",(long)i+1] parent:styles];NSArray *actions=@[@"Mark Selection",@"Clear Style",@"Next",@"Previous",@"Copy Styled Text"];for(NSInteger j=0;j<5;++j)[self item:style title:actions[j] action:@selector(markCommand:) key:@"" tag:j*10+i];}
     [self item:edit title:@"Next Change" action:@selector(changeHistory:) key:@"" tag:1];[self item:edit title:@"Previous Change" action:@selector(changeHistory:) key:@"" tag:-1];[self item:edit title:@"Clear Change History" action:@selector(changeHistory:) key:@"" tag:0];

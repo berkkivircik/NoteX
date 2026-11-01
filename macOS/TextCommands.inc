@@ -65,7 +65,7 @@ static NSString *NXEOL(ScintillaView *view) {auto mode=Send(view,SCI_GETEOLMODE)
         Send(view,SCI_BEGINUNDOACTION);for(auto n=last;n>=first;--n){auto p=Send(view,SCI_GETLINEINDENTPOSITION,n);BOOL present=text.compare(p,prefix.length,line.UTF8String)==0;if((remove&&!present)||([sender tag]==2&&present))continue;NXReplaceRange(view,p,p+(remove?prefix.length:0),remove?@"":line);}Send(view,SCI_ENDUNDOACTION);
     }[self tick:nil];
 }
-- (void)insertDate:(id)sender {NSString *pattern=[sender tag]?NXPrompt(@"Date Format",@"yyyy-MM-dd HH:mm:ss"):@"yyyy-MM-dd HH:mm:ss";if(!pattern)return;NSDateFormatter *formatter=[NSDateFormatter new];formatter.locale=[[NSLocale alloc]initWithLocaleIdentifier:@"en_US_POSIX"];formatter.dateFormat=pattern;NXReplaceRange(self.current.editor,Send(self.current.editor,SCI_GETSELECTIONSTART),Send(self.current.editor,SCI_GETSELECTIONEND),[formatter stringFromDate:NSDate.date]);}
+- (void)insertDate:(id)sender {NSString *pattern=[sender tag]==1?NXPrompt(@"Date Format",@"yyyy-MM-dd HH:mm:ss"):@"yyyy-MM-dd HH:mm:ss";if(!pattern)return;NSDateFormatter *formatter=[NSDateFormatter new];formatter.locale=[[NSLocale alloc]initWithLocaleIdentifier:@"en_US_POSIX"];formatter.dateFormat=pattern;if([sender tag]>=2){formatter.dateStyle=[sender tag]==2?NSDateFormatterShortStyle:NSDateFormatterLongStyle;formatter.timeStyle=NSDateFormatterShortStyle;}NXReplaceRange(self.current.editor,Send(self.current.editor,SCI_GETSELECTIONSTART),Send(self.current.editor,SCI_GETSELECTIONEND),[formatter stringFromDate:NSDate.date]);}
 - (void)columnEditor:(id)sender {
     NSString *value=NXPrompt(@"Insert Text at Each Selected Line's Column",@"");if(!value)return;ScintillaView *view=self.current.editor;
     auto start=Send(view,SCI_GETSELECTIONSTART),end=Send(view,SCI_GETSELECTIONEND),column=Send(view,SCI_GETCOLUMN,start);auto first=Send(view,SCI_LINEFROMPOSITION,start),last=Send(view,SCI_LINEFROMPOSITION,end);if(end>start&&last>first&&end==Send(view,SCI_POSITIONFROMLINE,last))--last;
@@ -78,6 +78,7 @@ static NSString *NXEOL(ScintillaView *view) {auto mode=Send(view,SCI_GETEOLMODE)
     ScintillaView *view=self.current.editor;NSInteger action=[sender tag];NSMutableString *copied=[NSMutableString new];
     std::string text(static_cast<const char *>(Text(view).bytes),Text(view).length);Send(view,SCI_BEGINUNDOACTION);
     for(sptr_t line=Send(view,SCI_GETLINECOUNT)-1;line>=0;--line){BOOL marked=(Send(view,SCI_MARKERGET,line)&1)!=0;auto start=Send(view,SCI_POSITIONFROMLINE,line),end=Send(view,SCI_POSITIONFROMLINE,line+1);if(end<0)end=text.size();
+        if(action==5&&marked){NSString *replacement=[NSPasteboard.generalPasteboard stringForType:NSPasteboardTypeString];if(replacement)NXReplaceRange(view,start,Send(view,SCI_GETLINEENDPOSITION,line),replacement);continue;}
         if(action==4){Send(view,marked?SCI_MARKERDELETE:SCI_MARKERADD,line,0);continue;}
         if(marked&&action<2){NSString *part=[[NSString alloc]initWithBytes:text.data()+start length:end-start encoding:NSUTF8StringEncoding];[copied insertString:part atIndex:0];}
         if((marked&&(action==1||action==2))||(!marked&&action==3))Send(view,SCI_DELETERANGE,start,end-start);

@@ -1,3 +1,4 @@
+#include "ColumnNumbers.h"
 // Copyright (C) 2026 Berk Kivircik. SPDX-License-Identifier: GPL-3.0-only
 // Native NoteX application, created 2026-11-01.
 #import <Cocoa/Cocoa.h>
@@ -72,6 +73,7 @@ static void Alert(NSString *message) {
 @property BOOL pinned;
 @property NSInteger tabColor;
 @property BOOL monitoring;
+@property BOOL secondaryOnly;
 - (BOOL)dirty;
 - (NSDictionary *)record;
 @end
@@ -85,7 +87,7 @@ static void Alert(NSString *message) {
     NSMutableArray *bookmarks = [NSMutableArray new];
     for (sptr_t line = Send(self.primaryEditor, SCI_MARKERNEXT, 0, 1); line >= 0; line = Send(self.primaryEditor, SCI_MARKERNEXT, line + 1, 1)) [bookmarks addObject:@(line)];
     return @{@"id":self.identifier, @"path":self.path, @"title":self.title, @"lexer":self.lexer,
-             @"builtinLanguage":self.builtinLanguage ?: @"", @"customLanguage":self.customLanguage ?: @"", @"pinned":@(self.pinned), @"tabColor":@(self.tabColor),
+             @"builtinLanguage":self.builtinLanguage ?: @"", @"customLanguage":self.customLanguage ?: @"", @"secondaryOnly":@(self.secondaryOnly), @"pinned":@(self.pinned), @"tabColor":@(self.tabColor),
              @"bookmarks":bookmarks, @"eol":@(Send(self.primaryEditor, SCI_GETEOLMODE)),
              @"text":text, @"format":NXCompanion(text, State(self.primaryEditor)), @"diskHash":self.diskHash,
              @"encoding":@(self.encoding), @"bom":@(self.bom), @"dirty":@(self.dirty),
@@ -155,6 +157,10 @@ static void Alert(NSString *message) {
 @property NSString *hintName;
 @property NSInteger hintIndex;
 @property BOOL searchTyping;
+@property BOOL syncVertical;
+@property BOOL syncHorizontal;
+@property NSMutableArray *recentTabIDs;
+@property id tabKeyMonitor;
 - (NXDocument *)current;
 - (void)runToolCommand:(id)sender;
 - (NXDocument *)restoreDocumentRecord:(NSDictionary *)record;
@@ -251,6 +257,13 @@ static void Alert(NSString *message) {
 - (void)hashCommand:(id)sender;
 @end
 
+@interface NXApp (ExtraCommands)
+- (void)buildExtraMenus;
+- (void)numberColumns:(id)sender;
+- (void)foldSpecific:(id)sender;
+- (void)openBrowser:(id)sender;
+- (void)folderWorkspace:(id)sender;
+@end
 @interface NXApp (ParityTests)
 - (void)parityTests;
 @end
@@ -310,6 +323,22 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
 @end
 @interface NXApp (StyleOverrides)
 - (void)styleEditor:(id)sender;
+@end
+@interface NXApp (ViewTransfer)
+- (void)activateDocument:(NXDocument *)doc;
+- (void)moveOtherView:(id)sender;
+- (void)synchronizeAxis:(id)sender;
+- (void)buildTransferMenus;
+@end
+@interface NXApp (UtilityCommands)
+- (void)binaryClipboard:(id)sender;
+- (void)redactSelection:(id)sender;
+- (void)openSelectedPath:(id)sender;
+- (void)findCharacterRange:(id)sender;
+- (void)copyAllStyledText:(id)sender;
+- (void)windowHistory:(id)sender;
+- (void)debugInformation:(id)sender;
+- (void)buildUtilityMenus;
 @end
 @implementation NXApp
 - (NXDocument *)current {
@@ -395,6 +424,8 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
     [self buildClipboardMenus];
     [self buildNavigationMenus];
     [self buildCompletionMenus];
+    [self buildTransferMenus];
+    [self buildUtilityMenus];[self buildExtraMenus];
     [self item:[NSApp.mainMenu itemAtIndex:0].submenu title:@"Syntax Style Editor…" action:@selector(styleEditor:) key:@"" tag:0];
 }
 - (void)buildWindow {
@@ -493,8 +524,8 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
         NSURL *url = [NSBundle.mainBundle.resourceURL URLByAppendingPathComponent:[@"Fonts" stringByAppendingPathComponent:font]];
         CTFontManagerRegisterFontsForURL((__bridge CFURLRef)url, kCTFontManagerScopeProcess, nil);
     }
-    self.documents = [NSMutableArray new];self.selectionAnchor=-1;
-    self.closedPaths=[NSMutableArray new];self.clipboardHistory=[NSMutableArray new];
+    self.documents = [NSMutableArray new];self.selectionAnchor=-1;self.syncVertical=YES;self.syncHorizontal=YES;
+    self.closedPaths=[NSMutableArray new];self.recentTabIDs=[NSMutableArray new];self.clipboardHistory=[NSMutableArray new];
     self.searchOptions=[@{@"matchCase":@NO,@"wholeWord":@NO,@"regex":@NO,@"engine":@"boost",@"selection":@NO} mutableCopy];
     self.dark = YES; self.wrap = YES; self.restoring = YES;
     NSError *error = nil;
@@ -529,12 +560,14 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
     self.contextLayout=[[NXMenuLayout alloc]initWithMenu:self.editorContextMenu settings:session[@"contextLayout"]];self.contextLayout.commit=^BOOL(NSError **saveError){return [weakSelf snapshot:saveError];};[self.contextLayout apply];
     [self.menuLayout apply];
     [self buildWindow];
+    self.tabKeyMonitor=[NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown handler:^NSEvent *(NSEvent *event){if(event.window==weakSelf.window&&!NSApp.modalWindow&&event.keyCode==48&&(event.modifierFlags&NSEventModifierFlagControl)){NSMenuItem *command=[NSMenuItem new];command.tag=(event.modifierFlags&NSEventModifierFlagShift)?-1:1;[weakSelf nextTab:command];return nil;}return event;}];
     self.window.appearance = [NSAppearance appearanceNamed:self.dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
     for (NSDictionary *record in session[@"documents"]) [self restoreDocumentRecord:record];
     if (!self.documents.count) [self newDocument:nil];
     NSInteger selected = [session[@"selected"] integerValue];
     if (selected >= 0 && selected < (NSInteger)self.documents.count) [self.tabs selectTabViewItemAtIndex:selected];
     [self restoreSecondary:session[@"secondary"]];
+    if(!self.secondaryVisible)for(NXDocument *doc in self.documents)doc.secondaryOnly=NO;
     self.restoring = NO;
     [self applySidebarVisibility];
     self.timer = [NSTimer scheduledTimerWithTimeInterval:[self.preferences[@"snapshotSeconds"] doubleValue] target:self selector:@selector(tick:) userInfo:nil repeats:YES];
@@ -557,7 +590,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
 }
 - (NXDocument *)restoreDocumentRecord:(NSDictionary *)record {
         NXDocument *doc = [self newDocument:nil];
-        doc.identifier = record[@"id"]; doc.path = NXCanonicalPath(record[@"path"]); doc.title = record[@"title"];
+        doc.identifier = record[@"id"];doc.tab.identifier=doc.identifier;doc.secondaryOnly=[record[@"secondaryOnly"] boolValue]; doc.path = NXCanonicalPath(record[@"path"]); doc.title = record[@"title"];
         doc.diskHash = record[@"diskHash"]; doc.encoding = [record[@"encoding"] unsignedIntegerValue]; doc.bom = [record[@"bom"] boolValue];
         doc.lexer = record[@"lexer"];
         doc.customLanguage=record[@"customLanguage"] ?: @"";doc.builtinLanguage=record[@"builtinLanguage"] ?: @"";doc.pinned=[record[@"pinned"] boolValue];doc.tabColor=[record[@"tabColor"] integerValue];
@@ -655,7 +688,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
     if(notification->nmhdr.hwndFrom!=reinterpret_cast<void *>(Send(self.current.editor,SCI_GETDIRECTPOINTER)))return;
     if(notification->nmhdr.code==SCN_UPDATEUI && self.synchronizedScroll && self.secondaryVisible && !self.syncingScroll){
         self.syncingScroll=YES;ScintillaView *other=self.secondaryFocused?self.tabs.selectedTabViewItem.view:self.secondaryEditor;
-        Send(other,SCI_SETFIRSTVISIBLELINE,Send(self.current.editor,SCI_GETFIRSTVISIBLELINE));Send(other,SCI_SETXOFFSET,Send(self.current.editor,SCI_GETXOFFSET));self.syncingScroll=NO;
+        if(self.syncVertical)Send(other,SCI_SETFIRSTVISIBLELINE,Send(self.current.editor,SCI_GETFIRSTVISIBLELINE));if(self.syncHorizontal)Send(other,SCI_SETXOFFSET,Send(self.current.editor,SCI_GETXOFFSET));self.syncingScroll=NO;
     }
     if(notification->nmhdr.code==SCN_MODIFIED && (notification->modificationType & (SC_MOD_INSERTTEXT|SC_MOD_DELETETEXT))){[NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(updateUserSyntax) object:nil];[self performSelector:@selector(updateUserSyntax) withObject:nil afterDelay:0.15];}
     if (notification->nmhdr.code == SCN_UPDATEUI) [self updateControls];
@@ -684,6 +717,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
 }
 - (void)tabView:(NSTabView *)tabView didSelectTabViewItem:(NSTabViewItem *)tabViewItem {
     self.secondaryFocused=NO;for(NXDocument *doc in self.documents)doc.activeEditor=nil;
+    if(!self.restoring&&self.current.identifier){[self.recentTabIDs removeObject:self.current.identifier];[self.recentTabIDs insertObject:self.current.identifier atIndex:0];if(self.recentTabIDs.count>1000)[self.recentTabIDs removeLastObject];}
     [self updateControls];
     [self refreshFunctions];
     [self.window makeFirstResponder:self.current.editor];
@@ -703,6 +737,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
     return YES;
 }
 - (void)tick:(id)sender {
+    NSMutableSet *hidden=[NSMutableSet new];for(NXDocument *doc in self.documents)if(doc.secondaryOnly)[hidden addObject:doc.tab.identifier];((NXTabView *)self.tabs).hiddenDocuments=hidden;
     [self checkMonitoredFiles];
     [self updateSecondaryChoices];
     [(NXTabView *)self.tabs refreshTabs];
@@ -735,7 +770,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
 }
 - (BOOL)openPath:(NSString *)path error:(NSError **)error {
     path=NXCanonicalPath(path);
-    for (NXDocument *existing in self.documents) if ([existing.path isEqual:path]) { self.secondaryFocused=NO; self.secondaryDocument.activeEditor=nil; [self.tabs selectTabViewItem:existing.tab]; [self.window makeFirstResponder:existing.primaryEditor]; return YES; }
+    for (NXDocument *existing in self.documents) if ([existing.path isEqual:path]) { self.secondaryFocused=NO; self.secondaryDocument.activeEditor=nil; [self activateDocument:existing]; return YES; }
     NSData *disk = [NSData dataWithContentsOfFile:path options:0 error:error];
     if (!disk) return NO;
     NSStringEncoding encoding = NSUTF8StringEncoding; BOOL bom = NO;
@@ -827,7 +862,6 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
 - (void)save:(id)sender { [self saveCurrentAs:NO]; }
 - (void)saveAs:(id)sender { [self saveCurrentAs:YES]; }
 - (void)closeTab:(id)sender {
-    if(self.secondaryFocused){[self closeSecondary:nil];return;}
     NXDocument *doc = self.current;
     if (doc.dirty) {
         NSAlert *alert = [NSAlert new]; alert.messageText = [NSString stringWithFormat:@"Save changes to %@?", doc.title];
@@ -897,11 +931,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
     self.preferences[@"dark"]=@(self.dark); [self refreshEditorSettings]; [self tick:nil];
 }
 - (void)editorCommand:(id)sender { Send(self.current.editor, static_cast<unsigned>([sender tag])); }
-- (void)nextTab:(id)sender {
-    NSInteger index = [self.tabs indexOfTabViewItem:self.tabs.selectedTabViewItem];
-    index = (index + [sender tag] + self.documents.count) % self.documents.count;
-    [self.tabs selectTabViewItemAtIndex:index];
-}
+- (void)nextTab:(id)sender {[(NXTabView *)self.tabs performSelector:[sender tag]<0?@selector(previous:):@selector(next:) withObject:sender];}
 - (void)showFind:(id)sender { self.findBar.hidden = NO; [self.window makeFirstResponder:self.findText]; }
 - (void)hideFind:(id)sender { self.findBar.hidden = YES; [self.window makeFirstResponder:self.current.editor]; }
 - (void)findNext:(id)sender { [self searchNavigate:sender]; }
@@ -938,6 +968,9 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
 #include "SearchCommands.inc"
 #include "NavigationCommands.inc"
 #include "Completion.inc"
+#include "UtilityCommands.inc"
+#include "ExtraCommands.inc"
+#include "ViewTransfer.inc"
 #include "StyleOverrides.inc"
 #include "Editing.inc"
 #include "Features.inc"

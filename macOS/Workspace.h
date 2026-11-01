@@ -15,6 +15,7 @@ BOOL NXValidateProject(id node, NSUInteger *count, unsigned depth);
 @property(nonatomic, readonly) NSInteger activePanel;
 - (instancetype)initWithState:(NSDictionary *)state;
 - (NSDictionary *)record;
+- (void)addFolderRoot:(NSString *)path;
 - (void)showPanel:(NSInteger)panel;
 - (void)updateFunctions:(NSData *)text path:(NSString *)path lexer:(NSString *)lexer;
 - (void)addProjectNamed:(NSString *)name;

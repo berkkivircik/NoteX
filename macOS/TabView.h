@@ -10,5 +10,6 @@
 @property NSView *tabCanvas;
 @property CGFloat headerHeight;
 @property NSView *overview;
+@property NSSet *hiddenDocuments;
 - (void)refreshTabs;
 @end

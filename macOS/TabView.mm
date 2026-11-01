@@ -48,8 +48,8 @@
     }return self;
 }
 - (NSRect)contentRect { NSRect r=self.bounds;r.size.height=MAX(0,r.size.height-self.headerHeight);if(self.isFlipped)r.origin.y=self.headerHeight;if(self.overview)r.size.width=MAX(0,r.size.width-120);return r; }
-- (void)previous:(id)sender { if(self.numberOfTabViewItems)[self selectTabViewItemAtIndex:([self indexOfTabViewItem:self.selectedTabViewItem]+self.numberOfTabViewItems-1)%self.numberOfTabViewItems]; }
-- (void)next:(id)sender { if(self.numberOfTabViewItems)[self selectTabViewItemAtIndex:([self indexOfTabViewItem:self.selectedTabViewItem]+1)%self.numberOfTabViewItems]; }
+- (void)previous:(id)sender {if(!self.numberOfTabViewItems)return;NSInteger i=[self indexOfTabViewItem:self.selectedTabViewItem];for(NSInteger n=0;n<self.numberOfTabViewItems;++n){i=(i+self.numberOfTabViewItems-1)%self.numberOfTabViewItems;NSTabViewItem *item=[self tabViewItemAtIndex:i];if(![self.hiddenDocuments containsObject:item.identifier]){[self selectTabViewItem:item];break;}}}
+- (void)next:(id)sender {if(!self.numberOfTabViewItems)return;NSInteger i=[self indexOfTabViewItem:self.selectedTabViewItem];for(NSInteger n=0;n<self.numberOfTabViewItems;++n){i=(i+1)%self.numberOfTabViewItems;NSTabViewItem *item=[self tabViewItemAtIndex:i];if(![self.hiddenDocuments containsObject:item.identifier]){[self selectTabViewItem:item];break;}}}
 - (void)choose:(id)sender { if(self.chooseDocument)self.chooseDocument(); }
 - (void)select:(NSButton *)sender { [self selectTabViewItemAtIndex:sender.tag]; }
 - (void)close:(NSButton *)sender { if(self.closeDocument)self.closeDocument(sender.tag); }
@@ -59,6 +59,7 @@
 - (void)refreshTabs {
     if(!self.tabScroll)return;
     NSMutableString *signature=[NSMutableString stringWithFormat:@"%.0f/%.0f/%ld",self.bounds.size.width,self.bounds.size.height,(long)[self indexOfTabViewItem:self.selectedTabViewItem]];
+    [signature appendFormat:@"%@",self.hiddenDocuments];
     for(NSTabViewItem *item in self.tabViewItems)[signature appendFormat:@"|%@|%@",item.identifier,item.label];
     if([_signature isEqual:signature])return;_signature=[signature copy];
     for(NSView *view in self.tabCanvas.subviews.copy)[view removeFromSuperview];
@@ -66,6 +67,7 @@
     NSRect selected=NSZeroRect;
     NSInteger i=0;
     for(NSTabViewItem *item in self.tabViewItems) {
+        if([self.hiddenDocuments containsObject:item.identifier]){++i;continue;}
         CGFloat width=MIN(220,MAX(128,[item.label sizeWithAttributes:@{NSFontAttributeName:[NSFont systemFontOfSize:12]}].width+36));
         width=MIN(width,available-14);
         if(x>0&&x+width>available-14){x=0;y+=28;}

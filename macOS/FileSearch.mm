@@ -93,6 +93,11 @@ NSArray *NXSearchFiles(NSArray *inputs, NSDictionary *options, BOOL (^cancelled)
     NSButton *_regex,*_case,*_word,*_recursive,*_hidden,*_find,*_apply;
     NSTableView *_table;NSArray *_results;NSOperationQueue *_queue;NSUInteger _generation;BOOL _busy;
 }
+- (void)showMatches:(NSArray *)matches document:(NSDictionary *)document parent:(NSWindow *)parent {
+    [self showForWindow:parent];[self cancelSearch:nil];NSMutableArray *results=[NSMutableArray new];
+    for(NSDictionary *match in matches){NSMutableDictionary *row=[match mutableCopy];row[@"id"]=document[@"id"];row[@"path"]=document[@"path"];row[@"title"]=document[@"title"];row[@"textHash"]=NXDigest(document[@"text"]);row[@"diskHash"]=NSData.data;[results addObject:row];}
+    _results=results;[_table reloadData];_apply.enabled=results.count>0&&results.count<20000;_status.stringValue=[NSString stringWithFormat:@"%lu matches in the captured document scope. Double-click to navigate.",(unsigned long)results.count];
+}
 - (void)navigateBy:(NSInteger)direction {if(!_results.count)return;NSInteger row=(_table.selectedRow+direction+_results.count)%_results.count;[_table selectRowIndexes:[NSIndexSet indexSetWithIndex:row] byExtendingSelection:NO];[_table scrollRowToVisible:row];if(self.navigate)self.navigate(_results[row]);}
 - (instancetype)init {self=[super initWithWindow:nil];if(self){_queue=[NSOperationQueue new];_queue.maxConcurrentOperationCount=1;_results=@[];}return self;}
 - (NSInteger)numberOfRowsInTableView:(NSTableView *)table{return _results.count;}
