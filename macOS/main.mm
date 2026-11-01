@@ -132,6 +132,9 @@ static void Alert(NSString *message) {
 @property BOOL syncingScroll;
 @property NXFileSearch *fileSearch;
 @property NSMutableArray *closedPaths;
+@property NSMutableDictionary *searchOptions;
+@property NSDictionary *searchScopeRecord;
+@property NSNumber *lastZeroMatch;
 - (NXDocument *)current;
 - (NXDocument *)newDocument:(id)sender;
 - (void)configureLexer:(NXDocument *)doc;
@@ -228,6 +231,15 @@ static void Alert(NSString *message) {
 @interface NXApp (ParityTests)
 - (void)parityTests;
 @end
+@interface NXApp (SearchCommands)
+- (void)searchSettings:(id)sender;
+- (NSArray *)documentMatches;
+- (void)searchNavigate:(id)sender;
+- (void)searchReplace:(id)sender;
+- (void)searchUtility:(id)sender;
+- (void)matchingBrace:(id)sender;
+- (void)buildSearchMenus;
+@end
 @implementation NXApp
 - (NXDocument *)current {
     if(self.secondaryVisible && self.secondaryFocused && self.secondaryDocument) return self.secondaryDocument;
@@ -305,6 +317,7 @@ static void Alert(NSString *message) {
     [self buildFeatureMenus];
     [self buildWorkbenchMenus];
     [self buildCommandMenus];
+    [self buildSearchMenus];
 }
 - (void)buildWindow {
     self.window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 1120, 740)
@@ -359,6 +372,7 @@ static void Alert(NSString *message) {
         [self button:@"Next" action:@selector(findNext:) tag:0],
         [self button:@"Replace" action:@selector(replace:) tag:0],
         [self button:@"Replace All" action:@selector(replace:) tag:1],
+        [self button:@"Options" action:@selector(searchSettings:) tag:0],
         [self button:@"Done" action:@selector(hideFind:) tag:0]]];
     self.findBar.edgeInsets = NSEdgeInsetsMake(4, 10, 4, 10);
     self.findBar.hidden = YES;
@@ -401,6 +415,7 @@ static void Alert(NSString *message) {
     }
     self.documents = [NSMutableArray new];
     self.closedPaths=[NSMutableArray new];
+    self.searchOptions=[@{@"matchCase":@NO,@"wholeWord":@NO,@"regex":@NO,@"engine":@"boost",@"selection":@NO} mutableCopy];
     self.dark = YES; self.wrap = YES; self.restoring = YES;
     NSError *error = nil;
     NSString *profile = NSProcessInfo.processInfo.environment[@"NOTEX_PROFILE"];
@@ -795,15 +810,8 @@ static void Alert(NSString *message) {
 }
 - (void)showFind:(id)sender { self.findBar.hidden = NO; [self.window makeFirstResponder:self.findText]; }
 - (void)hideFind:(id)sender { self.findBar.hidden = YES; [self.window makeFirstResponder:self.current.editor]; }
-- (void)findNext:(id)sender {
-    if (!self.findText.stringValue.length) { [self showFind:nil]; return; }
-    if (![self.current.editor findAndHighlightText:self.findText.stringValue matchCase:NO wholeWord:NO scrollTo:YES wrap:YES]) NSBeep();
-}
-- (void)replace:(id)sender {
-    if (!self.findText.stringValue.length) return;
-    [self.current.editor findAndReplaceText:self.findText.stringValue byText:self.replaceText.stringValue matchCase:NO wholeWord:NO doAll:[sender tag] != 0];
-    [self tick:nil];
-}
+- (void)findNext:(id)sender { [self searchNavigate:sender]; }
+- (void)replace:(id)sender { [self searchReplace:sender]; }
 - (void)goToLine:(id)sender {
     NSAlert *alert = [NSAlert new]; alert.messageText = @"Go to Line";
     NSTextField *field = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 0, 240, 24)]; field.stringValue = @"1";
@@ -823,6 +831,7 @@ static void Alert(NSString *message) {
 #include "DocumentCommands.inc"
 #include "CommandMenus.inc"
 #include "TextCommands.inc"
+#include "SearchCommands.inc"
 #include "Editing.inc"
 #include "Features.inc"
 #include "Workbench.inc"

@@ -16,6 +16,7 @@ NSString *NXDecodeText(NSData *data) {
 NSArray *NXSearchMatches(NSString *text, NSDictionary *options, NSError **error) {
     NSString *query=options[@"query"];
     if(!query.length){if(error)*error=NXError(@"Enter text to find.");return nil;}
+    if([options[@"regex"] boolValue]&&[options[@"engine"] isEqual:@"boost"])return NXBoostMatches(text,options,error);
     NSString *pattern=[options[@"regex"] boolValue]?query:[NSRegularExpression escapedPatternForString:query];
     if([options[@"wholeWord"] boolValue])pattern=[NSString stringWithFormat:@"(?<![\\p{L}\\p{N}_])(?:%@)(?![\\p{L}\\p{N}_])",pattern];
     NSRegularExpressionOptions flags=[options[@"matchCase"] boolValue]?0:NSRegularExpressionCaseInsensitive;

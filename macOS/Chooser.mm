@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Berk Kivircik. SPDX-License-Identifier: GPL-3.0-only
 // Searchable native selection dialog, added 2026-11-01.
 #import "Chooser.h"
-@interface NXChooser : NSObject <NSTableViewDataSource,NSTableViewDelegate,NSTextFieldDelegate>
+@interface NXChooser : NSObject <NSTableViewDataSource,NSTableViewDelegate,NSSearchFieldDelegate>
 @property NSArray *items;
 @property NSMutableArray<NSNumber *> *indices;
 @property NSTableView *table;

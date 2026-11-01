@@ -1,6 +1,7 @@
 // Copyright (C) 2026 Berk Kivircik. SPDX-License-Identifier: GPL-3.0-only
 // Native find-in-files and replacement previews, created 2026-11-01.
 #import <Cocoa/Cocoa.h>
+NSArray *NXBoostMatches(NSString *text, NSDictionary *options, NSError **error);
 NSString *NXDecodeText(NSData *data);
 NSArray *NXSearchMatches(NSString *text, NSDictionary *options, NSError **error);
 NSArray *NXSearchFiles(NSArray *inputs, NSDictionary *options, BOOL (^cancelled)(void), NSError **error);
