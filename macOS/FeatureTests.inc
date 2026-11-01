@@ -17,9 +17,10 @@ static NSMenuItem *FindMenuCommand(NSMenu *menu, SEL action, NSInteger tag) {
     Check(!FindMenuCommand(NSApp.mainMenu, @selector(toggleFormat:), NoteX::Bold), "hide selected formatting command");
     Check(FindMenuCommand(NSApp.mainMenu, @selector(customizeMenus:), 0) && FindMenuCommand(NSApp.mainMenu, @selector(terminate:), 0), "layout recovery and Quit remain accessible");
     NSDictionary *savedLayout = self.menuLayout.settings;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+    NSTimer *cancelDialog = [NSTimer timerWithTimeInterval:0.1 repeats:NO block:^(NSTimer *timer) {
         for (NSView *view in NSApp.modalWindow.contentView.subviews) if ([view isKindOfClass:NSButton.class] && [((NSButton *)view).title isEqual:@"Cancel"]) { [(NSButton *)view performClick:nil]; break; }
-    });
+    }];
+    [NSRunLoop.mainRunLoop addTimer:cancelDialog forMode:NSModalPanelRunLoopMode];
     [self.menuLayout customizeForWindow:self.window];
     Check([self.menuLayout.settings isEqual:savedLayout], "cancel native menu dialog leaves layout unchanged");
     [self.menuLayout reset];
