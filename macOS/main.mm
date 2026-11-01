@@ -7,6 +7,8 @@
 #import "MenuLayout.h"
 #import "Workspace.h"
 #import "FunctionIndex.h"
+#import "Configuration.h"
+#import "FileSearch.h"
 #include "ILexer.h"
 #include "Lexilla.h"
 #include "SciLexer.h"
@@ -43,7 +45,10 @@ static void Alert(NSString *message) {
 }
 
 @interface NXDocument : NSObject
-@property ScintillaView *editor;
+@property(nonatomic) ScintillaView *editor;
+@property ScintillaView *activeEditor;
+@property(nonatomic, readonly) ScintillaView *primaryEditor;
+@property NSString *customLanguage;
 @property NSTabViewItem *tab;
 @property NSString *identifier;
 @property NSString *path;
@@ -57,17 +62,21 @@ static void Alert(NSString *message) {
 - (NSDictionary *)record;
 @end
 @implementation NXDocument
+@synthesize editor = _editor;
+- (ScintillaView *)editor { return self.activeEditor ?: _editor; }
+- (ScintillaView *)primaryEditor { return _editor; }
 - (BOOL)dirty { return self.restoredDirty || Send(self.editor, SCI_GETMODIFY); }
 - (NSDictionary *)record {
-    NSData *text = Text(self.editor);
+    NSData *text = Text(self.primaryEditor);
     NSMutableArray *bookmarks = [NSMutableArray new];
-    for (sptr_t line = Send(self.editor, SCI_MARKERNEXT, 0, 1); line >= 0; line = Send(self.editor, SCI_MARKERNEXT, line + 1, 1)) [bookmarks addObject:@(line)];
+    for (sptr_t line = Send(self.primaryEditor, SCI_MARKERNEXT, 0, 1); line >= 0; line = Send(self.primaryEditor, SCI_MARKERNEXT, line + 1, 1)) [bookmarks addObject:@(line)];
     return @{@"id":self.identifier, @"path":self.path, @"title":self.title, @"lexer":self.lexer,
-             @"bookmarks":bookmarks, @"eol":@(Send(self.editor, SCI_GETEOLMODE)),
-             @"text":text, @"format":NXCompanion(text, State(self.editor)), @"diskHash":self.diskHash,
+             @"customLanguage":self.customLanguage ?: @"",
+             @"bookmarks":bookmarks, @"eol":@(Send(self.primaryEditor, SCI_GETEOLMODE)),
+             @"text":text, @"format":NXCompanion(text, State(self.primaryEditor)), @"diskHash":self.diskHash,
              @"encoding":@(self.encoding), @"bom":@(self.bom), @"dirty":@(self.dirty),
-             @"caret":@(Send(self.editor, SCI_GETCURRENTPOS)), @"anchor":@(Send(self.editor, SCI_GETANCHOR)),
-             @"firstLine":@(Send(self.editor, SCI_GETFIRSTVISIBLELINE))};
+             @"caret":@(Send(self.primaryEditor, SCI_GETCURRENTPOS)), @"anchor":@(Send(self.primaryEditor, SCI_GETANCHOR)),
+             @"zoom":@(Send(self.primaryEditor,SCI_GETZOOM)), @"xOffset":@(Send(self.primaryEditor,SCI_GETXOFFSET)), @"firstLine":@(Send(self.primaryEditor, SCI_GETFIRSTVISIBLELINE))};
 }
 @end
 
@@ -101,6 +110,18 @@ static void Alert(NSString *message) {
 @property BOOL recording;
 @property BOOL playingMacro;
 @property NSData *paintFormat;
+@property NSMutableDictionary *configuration;
+@property NSMutableDictionary *syntaxHashes;
+@property NSSplitView *editorSplit;
+@property NSView *secondaryHost;
+@property ScintillaView *secondaryEditor;
+@property NSPopUpButton *secondaryChoice;
+@property NXDocument *secondaryDocument;
+@property BOOL secondaryFocused;
+@property BOOL secondaryVisible;
+@property BOOL synchronizedScroll;
+@property BOOL syncingScroll;
+@property NXFileSearch *fileSearch;
 - (NXDocument *)current;
 - (NXDocument *)newDocument:(id)sender;
 - (void)configureLexer:(NXDocument *)doc;
@@ -124,12 +145,38 @@ static void Alert(NSString *message) {
 @interface NXApp (FeatureTests)
 - (void)featureTests;
 @end
+@interface NXApp (Workbench)
+- (void)buildWorkbenchMenus;
+- (void)buildSecondaryView;
+- (void)cloneView:(id)sender;
+- (void)closeSecondary:(id)sender;
+- (void)selectSecondary:(id)sender;
+- (void)bindSecondary:(NXDocument *)document;
+- (NSDictionary *)secondaryRecord;
+- (void)restoreSecondary:(NSDictionary *)record;
+- (void)refreshEditorSettings;
+- (void)updateUserSyntax;
+- (void)preferencesEditor:(id)sender;
+- (void)languageEditor:(id)sender;
+- (void)themeEditor:(id)sender;
+- (void)shortcutEditor:(id)sender;
+- (void)chooseTheme:(id)sender;
+- (void)chooseLanguage:(id)sender;
+- (NSDictionary *)userLanguage:(NXDocument *)document;
+- (void)applyUserTheme:(NXDocument *)document;
+- (void)findInFiles:(id)sender;
+- (NSArray *)searchScope:(NSInteger)scope;
+- (void)navigateResult:(NSDictionary *)result;
+- (NSString *)applySearchResults:(NSArray *)results;
+- (void)workbenchTests;
+@end
 @interface NXApp (Tests)
 - (void)selfTest:(NSString *)mode;
 @end
 
 @implementation NXApp
 - (NXDocument *)current {
+    if(self.secondaryVisible && self.secondaryFocused && self.secondaryDocument) return self.secondaryDocument;
     NSInteger index = [self.tabs indexOfTabViewItem:self.tabs.selectedTabViewItem];
     return index >= 0 && index < (NSInteger)self.documents.count ? self.documents[index] : nil;
 }
@@ -202,6 +249,7 @@ static void Alert(NSString *message) {
     [self item:help title:@"Source Code and License" action:@selector(source:) key:@"" tag:0];
     NSApp.mainMenu = root;
     [self buildFeatureMenus];
+    [self buildWorkbenchMenus];
 }
 - (void)buildWindow {
     self.window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 1120, 740)
@@ -258,7 +306,8 @@ static void Alert(NSString *message) {
     self.workspace.view.frame = NSMakeRect(0, 0, 285, 600);
     self.tabs.frame = NSMakeRect(286, 0, 834, 600);
     self.tabs.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
-    [self.split addSubview:self.workspace.view]; [self.split addSubview:self.tabs];
+    [self buildSecondaryView];
+    [self.split addSubview:self.workspace.view]; [self.split addSubview:self.editorSplit];
     [self.split setHoldingPriority:NSLayoutPriorityDefaultHigh forSubviewAtIndex:0];
     NSStackView *stack = [NSStackView stackViewWithViews:@[toolbar, self.findBar, self.split, self.status]];
     stack.orientation = NSUserInterfaceLayoutOrientationVertical;
@@ -293,6 +342,10 @@ static void Alert(NSString *message) {
     if ([session[@"preferences"] isKindOfClass:NSDictionary.class]) [self.preferences addEntriesFromDictionary:session[@"preferences"]];
     self.macros = [session[@"macros"] isKindOfClass:NSArray.class] ? [session[@"macros"] mutableCopy] : [NSMutableArray new];
     self.recordingActions = [NSMutableArray new];
+    self.configuration=[(session[@"configuration"] ?: NXDefaultConfiguration()) mutableCopy];
+    self.syntaxHashes=[NSMutableDictionary new];
+    NSDictionary *extra=@{@"caretWidth":@1,@"blinkRate":@500,@"edgeColumn":@0,@"snapshotSeconds":@1,@"defaultEncoding":@0,@"defaultEOL":@(SC_EOL_LF),@"indentGuides":@YES,@"showEOL":@NO,@"highlightLine":@NO,@"wrap":@(self.wrap),@"dark":@(self.dark)};
+    for(NSString *key in extra)if(!self.preferences[key])self.preferences[key]=extra[key];
     self.sidebarVisible = session[@"sidebarVisible"] ? [session[@"sidebarVisible"] boolValue] : YES;
     self.workspace = [[NXWorkspace alloc] initWithState:[session[@"workspace"] isKindOfClass:NSDictionary.class] ? session[@"workspace"] : @{}];
     __weak NXApp *weakSelf = self;
@@ -311,6 +364,7 @@ static void Alert(NSString *message) {
         doc.identifier = record[@"id"]; doc.path = record[@"path"]; doc.title = record[@"title"];
         doc.diskHash = record[@"diskHash"]; doc.encoding = [record[@"encoding"] unsignedIntegerValue]; doc.bom = [record[@"bom"] boolValue];
         doc.lexer = record[@"lexer"];
+        doc.customLanguage=record[@"customLanguage"] ?: @"";
         SetText(doc.editor, record[@"text"]);
         if ([record[@"eol"] isKindOfClass:NSNumber.class]) Send(doc.editor, SCI_SETEOLMODE, [record[@"eol"] integerValue]);
         for (NSNumber *line in record[@"bookmarks"]) if (line.longLongValue >= 0 && line.longLongValue < Send(doc.editor, SCI_GETLINECOUNT)) Send(doc.editor, SCI_MARKERADD, line.unsignedLongLongValue, 0);
@@ -323,15 +377,17 @@ static void Alert(NSString *message) {
         Send(doc.editor, SCI_SETSEL, std::clamp<sptr_t>([record[@"anchor"] longLongValue], 0, length),
              std::clamp<sptr_t>([record[@"caret"] longLongValue], 0, length));
         Send(doc.editor, SCI_SETFIRSTVISIBLELINE, std::max<long long>(0, [record[@"firstLine"] longLongValue]));
+        Send(doc.primaryEditor,SCI_SETZOOM,[record[@"zoom"] integerValue]); Send(doc.primaryEditor,SCI_SETXOFFSET,[record[@"xOffset"] integerValue]);
         [self configureLexer:doc];
     }
     if (!self.documents.count) [self newDocument:nil];
     NSInteger selected = [session[@"selected"] integerValue];
     if (selected >= 0 && selected < (NSInteger)self.documents.count) [self.tabs selectTabViewItemAtIndex:selected];
+    [self restoreSecondary:session[@"secondary"]];
     self.restoring = NO;
     self.workspace.view.hidden = !self.sidebarVisible;
     [self.split setPosition:self.sidebarVisible ? 285 : 0 ofDividerAtIndex:0];
-    self.timer = [NSTimer scheduledTimerWithTimeInterval:1 target:self selector:@selector(tick:) userInfo:nil repeats:YES];
+    self.timer = [NSTimer scheduledTimerWithTimeInterval:[self.preferences[@"snapshotSeconds"] doubleValue] target:self selector:@selector(tick:) userInfo:nil repeats:YES];
     [self.window makeKeyAndOrderFront:nil];
     [NSApp activateIgnoringOtherApps:YES];
     [self.window makeFirstResponder:self.current.editor];
@@ -352,12 +408,14 @@ static void Alert(NSString *message) {
 - (NXDocument *)newDocument:(id)sender {
     NXDocument *doc = [NXDocument new];
     doc.identifier = NSUUID.UUID.UUIDString; doc.path = @""; doc.lexer = @"null";
+    doc.customLanguage=@"";
     doc.title = [NSString stringWithFormat:@"Untitled %lu", (unsigned long)self.documents.count + 1];
     doc.diskHash = NSData.data; doc.encoding = NSUTF8StringEncoding;
+    NSInteger encoding=[self.preferences[@"defaultEncoding"] integerValue];doc.encoding=encoding<2?NSUTF8StringEncoding:encoding==2?NSUTF16LittleEndianStringEncoding:NSUTF16BigEndianStringEncoding;doc.bom=encoding!=0;
     doc.editor = [[ScintillaView alloc] initWithFrame:NSMakeRect(0, 0, 1000, 620)];
     doc.editor.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     Send(doc.editor, SCI_SETCODEPAGE, SC_CP_UTF8);
-    Send(doc.editor, SCI_SETEOLMODE, SC_EOL_LF);
+    Send(doc.editor, SCI_SETEOLMODE, [self.preferences[@"defaultEOL"] integerValue]);
     Send(doc.editor, SCI_SETTABWIDTH, 4); Send(doc.editor, SCI_SETUSETABS, 0);
     Send(doc.editor, SCI_SETMARGINTYPEN, 0, SC_MARGIN_NUMBER); Send(doc.editor, SCI_SETMARGINWIDTHN, 0, 56);
     Send(doc.editor, SCI_SETWRAPMODE, self.wrap ? SC_WRAP_WORD : SC_WRAP_NONE);
@@ -389,7 +447,7 @@ static void Alert(NSString *message) {
     [self configureLexer:doc];
 }
 - (void)configureLexer:(NXDocument *)doc {
-    auto *lexer = CreateLexer(doc.lexer.UTF8String);
+    auto *lexer = [self userLanguage:doc] ? nullptr : CreateLexer(doc.lexer.UTF8String);
     Send(doc.editor, SCI_SETILEXER, 0, reinterpret_cast<sptr_t>(lexer));
     Send(doc.editor, SCI_SETPROPERTY, reinterpret_cast<uptr_t>("fold"), reinterpret_cast<sptr_t>("1"));
     // Common lexer styles; users can select any bundled Lexilla lexer.
@@ -404,9 +462,22 @@ static void Alert(NSString *message) {
         Send(doc.editor, SCI_STYLESETFORE, 6, self.dark ? 0x9ac8df : 0x226699);
     }
     Send(doc.editor, SCI_COLOURISE, 0, -1);
+    [self applyUserTheme:doc];
+    [self.syntaxHashes removeObjectForKey:doc.identifier];
 }
 - (void)notification:(SCNotification *)notification {
     if (self.restoring) return;
+    if(notification->nmhdr.code==SCN_FOCUSIN){
+        for(NXDocument *doc in self.documents)doc.activeEditor=nil;
+        self.secondaryFocused=self.secondaryVisible && notification->nmhdr.hwndFrom==reinterpret_cast<void *>(Send(self.secondaryEditor,SCI_GETDIRECTPOINTER));
+        if(self.secondaryFocused)self.secondaryDocument.activeEditor=self.secondaryEditor;
+    }
+    if(notification->nmhdr.hwndFrom!=reinterpret_cast<void *>(Send(self.current.editor,SCI_GETDIRECTPOINTER)))return;
+    if(notification->nmhdr.code==SCN_UPDATEUI && self.synchronizedScroll && self.secondaryVisible && !self.syncingScroll){
+        self.syncingScroll=YES;ScintillaView *other=self.secondaryFocused?self.tabs.selectedTabViewItem.view:self.secondaryEditor;
+        Send(other,SCI_SETFIRSTVISIBLELINE,Send(self.current.editor,SCI_GETFIRSTVISIBLELINE));Send(other,SCI_SETXOFFSET,Send(self.current.editor,SCI_GETXOFFSET));self.syncingScroll=NO;
+    }
+    if(notification->nmhdr.code==SCN_MODIFIED && (notification->modificationType & (SC_MOD_INSERTTEXT|SC_MOD_DELETETEXT))){[NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(updateUserSyntax) object:nil];[self performSelector:@selector(updateUserSyntax) withObject:nil afterDelay:0.15];}
     if (notification->nmhdr.code == SCN_UPDATEUI) [self updateControls];
     [self recordNotification:notification];
 }
@@ -428,6 +499,7 @@ static void Alert(NSString *message) {
         doc.encoding == NSUTF8StringEncoding ? @"UTF-8" : @"UTF-16", (unsigned long)doc.editor.string.length];
 }
 - (void)tabView:(NSTabView *)tabView didSelectTabViewItem:(NSTabViewItem *)tabViewItem {
+    self.secondaryFocused=NO;for(NXDocument *doc in self.documents)doc.activeEditor=nil;
     [self updateControls];
     [self refreshFunctions];
     [self.window makeFirstResponder:self.current.editor];
@@ -439,7 +511,8 @@ static void Alert(NSString *message) {
     NSDictionary *session = @{@"schema":@1, @"documents":documents,
         @"selected":@([self.tabs indexOfTabViewItem:self.tabs.selectedTabViewItem]), @"dark":@(self.dark), @"wrap":@(self.wrap),
         @"workspace":self.workspace.record ?: @{}, @"menuLayout":self.menuLayout.settings ?: @{},
-        @"preferences":[self.preferences copy] ?: @{}, @"macros":[self.macros copy] ?: @[], @"sidebarVisible":@(self.sidebarVisible)};
+        @"preferences":[self.preferences copy] ?: @{}, @"macros":[self.macros copy] ?: @[], @"sidebarVisible":@(self.sidebarVisible),
+        @"configuration":[self.configuration copy],@"secondary":[self secondaryRecord]};
     if ([session isEqual:self.lastSnapshot]) return YES;
     if (![self.storage save:session error:error]) return NO;
     self.lastSnapshot = session;
@@ -452,6 +525,7 @@ static void Alert(NSString *message) {
     for (NXDocument *doc in self.documents) doc.tab.label = [doc.title stringByAppendingString:doc.dirty ? @" •" : @""];
     [self updateControls];
     [self refreshFunctions];
+    [self updateUserSyntax];
 }
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)app {
     NSError *error = nil;
@@ -472,7 +546,7 @@ static void Alert(NSString *message) {
     return ok;
 }
 - (BOOL)openPath:(NSString *)path error:(NSError **)error {
-    for (NXDocument *existing in self.documents) if ([existing.path isEqual:path]) { [self.tabs selectTabViewItem:existing.tab]; return YES; }
+    for (NXDocument *existing in self.documents) if ([existing.path isEqual:path]) { self.secondaryFocused=NO; self.secondaryDocument.activeEditor=nil; [self.tabs selectTabViewItem:existing.tab]; [self.window makeFirstResponder:existing.primaryEditor]; return YES; }
     NSData *disk = [NSData dataWithContentsOfFile:path options:0 error:error];
     if (!disk) return NO;
     NSStringEncoding encoding = NSUTF8StringEncoding; BOOL bom = NO;
@@ -491,6 +565,7 @@ static void Alert(NSString *message) {
     Send(doc.editor, SCI_SETEOLMODE, [string containsString:@"\r\n"] ? SC_EOL_CRLF : [string containsString:@"\r"] && ![string containsString:@"\n"] ? SC_EOL_CR : SC_EOL_LF);
     NSDictionary *lexers = @{@"c":@"cpp", @"h":@"cpp", @"cc":@"cpp", @"cpp":@"cpp", @"hpp":@"cpp", @"m":@"cpp", @"mm":@"cpp", @"js":@"cpp", @"ts":@"cpp", @"java":@"cpp", @"py":@"python", @"json":@"json", @"xml":@"xml", @"html":@"html", @"css":@"css", @"md":@"markdown", @"sh":@"bash", @"sql":@"sql", @"yaml":@"yaml", @"yml":@"yaml", @"swift":@"swift", @"rs":@"rust"};
     doc.lexer = lexers[path.pathExtension.lowercaseString] ?: @"null";
+    doc.customLanguage=NXLanguageForPath(self.configuration,path)[@"id"] ?: @"";
     [self configureLexer:doc];
     NSString *sidecar = [path stringByAppendingString:@".notex"];
     if (![NSFileManager.defaultManager fileExistsAtPath:sidecar]) {
@@ -559,6 +634,7 @@ static void Alert(NSString *message) {
 - (void)save:(id)sender { [self saveCurrentAs:NO]; }
 - (void)saveAs:(id)sender { [self saveCurrentAs:YES]; }
 - (void)closeTab:(id)sender {
+    if(self.secondaryFocused){[self closeSecondary:nil];return;}
     NXDocument *doc = self.current;
     if (doc.dirty) {
         NSAlert *alert = [NSAlert new]; alert.messageText = [NSString stringWithFormat:@"Save changes to %@?", doc.title];
@@ -569,6 +645,7 @@ static void Alert(NSString *message) {
     }
     NSError *error = nil;
     if (![self snapshot:&error]) { Alert(error.localizedDescription); return; }
+    if(doc==self.secondaryDocument)[self closeSecondary:nil];
     [self.tabs removeTabViewItem:doc.tab]; [self.documents removeObject:doc];
     if (!self.documents.count) [self newDocument:nil];
     [self tick:nil];
@@ -628,12 +705,12 @@ static void Alert(NSString *message) {
     }
     Send(view, SCI_ENDUNDOACTION); [self tick:nil];
 }
-- (void)changeLanguage:(id)sender { self.current.lexer = self.language.indexOfSelectedItem == 0 ? @"null" : self.language.titleOfSelectedItem; [self configureLexer:self.current]; }
-- (void)toggleWrap:(id)sender { self.wrap = !self.wrap; for (NXDocument *doc in self.documents) Send(doc.editor, SCI_SETWRAPMODE, self.wrap ? SC_WRAP_WORD : SC_WRAP_NONE); }
+- (void)changeLanguage:(id)sender { self.current.customLanguage=@"";self.current.lexer = self.language.indexOfSelectedItem == 0 ? @"null" : self.language.titleOfSelectedItem; [self refreshEditorSettings]; }
+- (void)toggleWrap:(id)sender { self.wrap=!self.wrap; self.preferences[@"wrap"]=@(self.wrap); [self refreshEditorSettings]; [self tick:nil]; }
 - (void)toggleDark:(id)sender {
     self.dark = !self.dark;
     self.window.appearance = [NSAppearance appearanceNamed:self.dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
-    for (NXDocument *doc in self.documents) [self theme:doc];
+    self.preferences[@"dark"]=@(self.dark); [self refreshEditorSettings]; [self tick:nil];
 }
 - (void)editorCommand:(id)sender { Send(self.current.editor, static_cast<unsigned>([sender tag])); }
 - (void)nextTab:(id)sender {
@@ -660,7 +737,7 @@ static void Alert(NSString *message) {
 }
 - (void)about:(id)sender {
     [NSApp orderFrontStandardAboutPanelWithOptions:@{NSAboutPanelOptionApplicationName:@"NoteX",
-        NSAboutPanelOptionApplicationVersion:@"1.3.3 — Native macOS Preview 2",
+        NSAboutPanelOptionApplicationVersion:@"1.4.0 — Native macOS Preview 3",
         NSAboutPanelOptionCredits:[[NSAttributedString alloc] initWithString:@"Native AppKit • Scintilla • Lexilla\nCopyright © 2026 Berk Kivircik and contributors.\nGNU General Public License version 3.\nSee Help for source, licensing, and preview limitations."]}];
 }
 - (void)showSession:(id)sender { [NSWorkspace.sharedWorkspace openURL:[NSURL fileURLWithPath:self.storage.directory]]; }
@@ -669,6 +746,7 @@ static void Alert(NSString *message) {
 @end
 
 #include "Features.inc"
+#include "Workbench.inc"
 #include "FeatureTests.inc"
 #include "SelfTest.inc"
 

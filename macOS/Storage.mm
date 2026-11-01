@@ -2,6 +2,7 @@
 // Native macOS storage, created 2026-11-01.
 #import "Storage.h"
 #import "Workspace.h"
+#import "Configuration.h"
 #import <CommonCrypto/CommonDigest.h>
 #include <fcntl.h>
 #include <sys/file.h>
@@ -85,6 +86,13 @@ static NSDictionary *DecodeSession(NSData *data) {
         ![root[@"documents"] isKindOfClass:NSArray.class] || ![root[@"selected"] isKindOfClass:NSNumber.class]) return nil;
     NSArray *documents = root[@"documents"];
     if (documents.count > 1000) return nil;
+    if(root[@"configuration"]&&!NXValidateConfiguration(root[@"configuration"]))return nil;
+    if(root[@"secondary"]){id secondary=root[@"secondary"];if(![secondary isKindOfClass:NSDictionary.class])return nil;
+        if([secondary count]){if(![secondary[@"document"] isKindOfClass:NSString.class])return nil;
+            for(NSString *key in @[@"vertical",@"focused",@"synchronized",@"caret",@"anchor",@"firstLine"])if(![secondary[key] isKindOfClass:NSNumber.class])return nil;
+            for(NSString *key in @[@"ratio",@"zoom",@"xOffset"])if(secondary[key]&&![secondary[key] isKindOfClass:NSNumber.class])return nil;
+        }
+    }
     for (NSString *key in @[@"dark", @"wrap", @"sidebarVisible"])
         if (root[key] && ![root[key] isKindOfClass:NSNumber.class]) return nil;
     // Optional fields preserve compatibility with the first native release.
@@ -112,6 +120,7 @@ static NSDictionary *DecodeSession(NSData *data) {
     }
     if (root[@"preferences"]) {
         id preferences = root[@"preferences"];
+        if(!NXValidatePreferences(preferences))return nil;
         if (![preferences isKindOfClass:NSDictionary.class] || ![preferences[@"font"] isKindOfClass:NSString.class]) return nil;
         for (NSString *key in @[@"fontSize", @"tabWidth", @"useTabs", @"lineNumbers", @"whitespace", @"autoIndent", @"braceMatch", @"autoComplete"])
             if (![preferences[key] isKindOfClass:NSNumber.class]) return nil;
@@ -129,6 +138,8 @@ static NSDictionary *DecodeSession(NSData *data) {
     }
     for (id doc in documents) {
         if (![doc isKindOfClass:NSDictionary.class]) return nil;
+        if(doc[@"customLanguage"]&&![doc[@"customLanguage"] isKindOfClass:NSString.class])return nil;
+        for(NSString *key in @[@"zoom",@"xOffset"])if(doc[key]&&![doc[key] isKindOfClass:NSNumber.class])return nil;
         if (doc[@"eol"] && (![doc[@"eol"] isKindOfClass:NSNumber.class] || [doc[@"eol"] integerValue] < 0 || [doc[@"eol"] integerValue] > 2)) return nil;
         if (doc[@"bookmarks"]) {
             if (![doc[@"bookmarks"] isKindOfClass:NSArray.class]) return nil;

@@ -22,7 +22,7 @@ static BOOL StringMacroMessage(unsigned message) {
 - (void)buildFeatureMenus {
     NSMenu *root = NSApp.mainMenu;
     NSMenu *application = [root itemAtIndex:0].submenu;
-    [self item:application title:@"Preferences…" action:@selector(preferencesDialog:) key:@"," tag:0];
+    [self item:application title:@"Preferences…" action:@selector(preferencesEditor:) key:@"," tag:0];
     [self item:application title:@"Customize Menus…" action:@selector(customizeMenus:) key:@"" tag:0];
     [self item:application title:@"Reset Menu Layout" action:@selector(resetMenus:) key:@"" tag:0];
     NSMenu *file = [root itemWithTitle:@"File"].submenu;
@@ -91,6 +91,14 @@ static BOOL StringMacroMessage(unsigned message) {
     Send(doc.editor, SCI_STYLECLEARALL);
     Send(doc.editor, SCI_SETTABWIDTH, std::clamp<NSInteger>([self.preferences[@"tabWidth"] integerValue], 1, 16));
     Send(doc.editor, SCI_SETUSETABS, [self.preferences[@"useTabs"] boolValue]);
+    Send(doc.editor,SCI_SETWRAPMODE,self.wrap?SC_WRAP_WORD:SC_WRAP_NONE);
+    Send(doc.editor,SCI_SETINDENTATIONGUIDES,[self.preferences[@"indentGuides"] boolValue]?SC_IV_LOOKBOTH:SC_IV_NONE);
+    Send(doc.editor,SCI_SETVIEWEOL,[self.preferences[@"showEOL"] boolValue]);
+    Send(doc.editor,SCI_SETCARETLINEVISIBLE,[self.preferences[@"highlightLine"] boolValue]);
+    Send(doc.editor,SCI_SETCARETWIDTH,std::clamp<NSInteger>([self.preferences[@"caretWidth"] integerValue],1,3));
+    Send(doc.editor,SCI_SETCARETPERIOD,[self.preferences[@"blinkRate"] integerValue]);
+    Send(doc.editor,SCI_SETEDGECOLUMN,[self.preferences[@"edgeColumn"] integerValue]);
+    Send(doc.editor,SCI_SETEDGEMODE,[self.preferences[@"edgeColumn"] integerValue]>0?EDGE_LINE:EDGE_NONE);
     Send(doc.editor, SCI_SETMARGINWIDTHN, 0, [self.preferences[@"lineNumbers"] boolValue] ? 56 : 0);
     Send(doc.editor, SCI_SETVIEWWS, [self.preferences[@"whitespace"] boolValue] ? SCWS_VISIBLEALWAYS : SCWS_INVISIBLE);
     Send(doc.editor, SCI_SETMULTIPLESELECTION, 1); Send(doc.editor, SCI_SETADDITIONALSELECTIONTYPING, 1); Send(doc.editor, SCI_SETMULTIPASTE, SC_MULTIPASTE_EACH);
@@ -103,29 +111,7 @@ static BOOL StringMacroMessage(unsigned message) {
     for (int marker : {SC_MARKNUM_FOLDEREND, SC_MARKNUM_FOLDERMIDTAIL, SC_MARKNUM_FOLDEROPENMID, SC_MARKNUM_FOLDERSUB, SC_MARKNUM_FOLDERTAIL}) Send(doc.editor, SCI_MARKERDEFINE, marker, SC_MARK_EMPTY);
     Send(doc.editor, SCI_SETAUTOMATICFOLD, SC_AUTOMATICFOLD_SHOW | SC_AUTOMATICFOLD_CHANGE);
 }
-- (void)preferencesDialog:(id)sender {
-    NSAlert *alert = [NSAlert new]; alert.messageText = @"Editor Preferences";
-    alert.informativeText = @"These defaults apply to all tabs. Explicit per-range formatting remains unchanged. Sessions and preferences stay outside the application bundle.";
-    NSTextField *font = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 0, 240, 24)]; font.stringValue = self.preferences[@"font"];
-    NSTextField *size = [[NSTextField alloc] initWithFrame:NSZeroRect]; size.integerValue = [self.preferences[@"fontSize"] integerValue];
-    NSTextField *tab = [[NSTextField alloc] initWithFrame:NSZeroRect]; tab.integerValue = [self.preferences[@"tabWidth"] integerValue];
-    NSMutableArray *rows = [@[@[[NSTextField labelWithString:@"Default font"], font], @[[NSTextField labelWithString:@"Font size (6–96)"], size], @[[NSTextField labelWithString:@"Tab width (1–16)"], tab]] mutableCopy];
-    NSArray *keys = @[@"useTabs", @"lineNumbers", @"whitespace", @"autoIndent", @"braceMatch", @"autoComplete"];
-    NSArray *labels = @[@"Indent with tabs", @"Show line numbers", @"Show whitespace", @"Automatic indentation", @"Highlight matching braces", @"Automatic word completion"];
-    NSMutableArray *checks = [NSMutableArray new];
-    for (NSUInteger i = 0; i < keys.count; ++i) {
-        NSButton *check = [NSButton checkboxWithTitle:labels[i] target:nil action:nil]; check.state = [self.preferences[keys[i]] boolValue] ? NSControlStateValueOn : NSControlStateValueOff;
-        [checks addObject:check]; [rows addObject:@[check, [NSTextField labelWithString:@""]]];
-    }
-    NSGridView *grid = [NSGridView gridViewWithViews:rows]; grid.frame = NSMakeRect(0, 0, 440, 290); alert.accessoryView = grid;
-    [alert addButtonWithTitle:@"Apply"]; [alert addButtonWithTitle:@"Cancel"];
-    if ([alert runModal] != NSAlertFirstButtonReturn) return;
-    if (![NSFontManager.sharedFontManager.availableFontFamilies containsObject:font.stringValue] || size.integerValue < 6 || size.integerValue > 96 || tab.integerValue < 1 || tab.integerValue > 16) { Alert(@"Choose an installed font, a size from 6 to 96, and a tab width from 1 to 16."); return; }
-    self.preferences[@"font"] = font.stringValue; self.preferences[@"fontSize"] = @(size.integerValue); self.preferences[@"tabWidth"] = @(tab.integerValue);
-    for (NSUInteger i = 0; i < keys.count; ++i) self.preferences[keys[i]] = @([checks[i] state] == NSControlStateValueOn);
-    for (NXDocument *doc in self.documents) { [self applyPreferences:doc]; [self theme:doc]; }
-    [self tick:nil];
-}
+- (void)preferencesDialog:(id)sender { [self preferencesEditor:sender]; }
 - (void)copyFormat:(id)sender {
     NoteX::SelectionFormat query; query.start = Send(self.current.editor, SCI_GETSELECTIONSTART); query.end = Send(self.current.editor, SCI_GETSELECTIONEND);
     Send(self.current.editor, NoteX::GetFormat, 0, reinterpret_cast<sptr_t>(&query));

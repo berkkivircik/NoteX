@@ -12,8 +12,8 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "1.3.3"
-BUILD = "2"
+VERSION = "1.4.0"
+BUILD = "3"
 
 def main():
     if sys.platform != "darwin":

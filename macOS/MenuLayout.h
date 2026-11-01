@@ -8,4 +8,7 @@
 - (BOOL)setLayout:(NSDictionary *)settings error:(NSError **)error;
 - (void)customizeForWindow:(NSWindow *)window;
 - (void)reset;
+- (NSArray *)commands;
+- (void)editShortcutsForWindow:(NSWindow *)window;
+- (BOOL)setShortcuts:(NSDictionary *)shortcuts error:(NSError **)error;
 @end

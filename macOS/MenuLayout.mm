@@ -10,6 +10,12 @@
     NSArray *_nodes;
     NSOutlineView *_tree;
     NSWindow *_dialog;
+    NSMutableDictionary *_shortcutDraft;
+    NSPopUpButton *_shortcutChoice;
+    NSTextField *_shortcutKey;
+    NSArray *_shortcutModifiers;
+    NSArray *_commands;
+    NSTextField *_shortcutStatus;
 }
 static BOOL ValidLayout(NSDictionary *value) {
     if (![value isKindOfClass:NSDictionary.class] || ![value[@"order"] isKindOfClass:NSDictionary.class] ||
@@ -20,6 +26,10 @@ static BOOL ValidLayout(NSDictionary *value) {
         for (id item in order) if (![item isKindOfClass:NSString.class]) return NO;
     }
     for (id item in value[@"hidden"]) if (![item isKindOfClass:NSString.class]) return NO;
+    if(value[@"shortcuts"]){
+        if(![value[@"shortcuts"] isKindOfClass:NSDictionary.class]||[value[@"shortcuts"] count]>5000)return NO;
+        for(id key in value[@"shortcuts"]){id shortcut=value[@"shortcuts"][key];if(![key isKindOfClass:NSString.class]||![shortcut isKindOfClass:NSDictionary.class]||![shortcut[@"key"] isKindOfClass:NSString.class]||[shortcut[@"key"] length]>1||![shortcut[@"modifiers"] isKindOfClass:NSNumber.class])return NO;}
+    }
     return YES;
 }
 - (NSArray *)nodesForMenu:(NSMenu *)menu parent:(NSString *)parent {
@@ -68,6 +78,8 @@ static BOOL ValidLayout(NSDictionary *value) {
         copy.target = source.target; copy.tag = source.tag; copy.keyEquivalentModifierMask = source.keyEquivalentModifierMask;
         copy.state = source.state; copy.enabled = source.enabled; copy.representedObject = source.representedObject;
         copy.identifier = node[@"key"];
+        NSDictionary *shortcut=_settings[@"shortcuts"][node[@"key"]];
+        if(shortcut){copy.keyEquivalent=shortcut[@"key"];copy.keyEquivalentModifierMask=[shortcut[@"modifiers"] unsignedLongLongValue];}
         if (source.submenu) {
             copy.submenu = [self render:node[@"children"] parent:node[@"key"]];
             if (!copy.submenu.numberOfItems) continue;
@@ -83,6 +95,57 @@ static BOOL ValidLayout(NSDictionary *value) {
     _settings = [settings copy];
     if (self.commit && !self.commit(error)) { _settings = previous; return NO; }
     [self apply]; return YES;
+}
+- (void)collectCommands:(NSArray *)nodes into:(NSMutableArray *)result {
+    for(NSDictionary *node in nodes){NSMenuItem *item=node[@"item"];
+        if(item.submenu)[self collectCommands:node[@"children"] into:result];
+        else if(item.action){NSString *key=item.keyEquivalent;NSUInteger modifiers=item.keyEquivalentModifierMask;
+            if(key.length&&![key isEqual:key.lowercaseString]){key=key.lowercaseString;modifiers|=NSEventModifierFlagShift;}
+            [result addObject:@{@"id":node[@"key"],@"name":[NSString stringWithFormat:@"%@ — %@",node[@"parent"],item.title],@"key":key,@"modifiers":@(modifiers),@"locked":@(item.action==@selector(terminate:))}];
+        }
+    }
+}
+- (NSArray *)commands {NSMutableArray *commands=[NSMutableArray new];[self collectCommands:_nodes into:commands];return commands;}
+- (BOOL)setShortcuts:(NSDictionary *)shortcuts error:(NSError **)error {
+    NSMutableDictionary *layout=[_settings mutableCopy];layout[@"shortcuts"]=shortcuts;
+    if(!ValidLayout(layout)){if(error)*error=NXError(@"Invalid shortcut settings.");return NO;}
+    NSMutableDictionary *used=[NSMutableDictionary new];NSSet *ids=[NSSet setWithArray:[self.commands valueForKey:@"id"]];
+    for(NSString *key in shortcuts)if(![ids containsObject:key]){if(error)*error=NXError(@"A shortcut refers to an unknown command.");return NO;}
+    for(NSDictionary *command in self.commands){NSDictionary *shortcut=shortcuts[command[@"id"]] ?: command;NSString *key=shortcut[@"key"];NSUInteger modifiers=[shortcut[@"modifiers"] unsignedLongLongValue];
+        NSUInteger allowed=NSEventModifierFlagCommand|NSEventModifierFlagControl|NSEventModifierFlagOption|NSEventModifierFlagShift;
+        if((modifiers&~allowed)||(key.length&&[key characterAtIndex:0]<0xf700&&!(modifiers&(NSEventModifierFlagCommand|NSEventModifierFlagControl)))){if(error)*error=NXError(@"Text shortcuts require Command or Control. Use a function key for an unmodified shortcut.");return NO;}
+        if([command[@"locked"] boolValue]&&(![key isEqual:command[@"key"]]||modifiers!=[command[@"modifiers"] unsignedLongLongValue])){if(error)*error=NXError(@"Command-Q is reserved for Quit.");return NO;}
+        if(!key.length)continue;NSString *identity=[NSString stringWithFormat:@"%@:%lu",key.lowercaseString,(unsigned long)(modifiers|(![key isEqual:key.lowercaseString]?NSEventModifierFlagShift:0))];
+        if(used[identity]){if(error)*error=NXError([NSString stringWithFormat:@"Shortcut conflict: %@ and %@. Clear one assignment before applying.",used[identity],command[@"name"]]);return NO;}used[identity]=command[@"name"];
+    }
+    return [self setLayout:layout error:error];
+}
+- (void)selectShortcut:(id)sender {
+    NSDictionary *command=_commands[_shortcutChoice.indexOfSelectedItem],*shortcut=_shortcutDraft[command[@"id"]] ?: command;NSString *key=shortcut[@"key"];
+    if(key.length&&[key characterAtIndex:0]>=NSF1FunctionKey&&[key characterAtIndex:0]<=NSF20FunctionKey)key=[NSString stringWithFormat:@"F%d",[key characterAtIndex:0]-NSF1FunctionKey+1];
+    _shortcutKey.stringValue=key;NSUInteger masks[]={NSEventModifierFlagCommand,NSEventModifierFlagControl,NSEventModifierFlagOption,NSEventModifierFlagShift};
+    for(NSUInteger i=0;i<4;++i)[_shortcutModifiers[i] setState:([shortcut[@"modifiers"] unsignedLongLongValue]&masks[i])?NSControlStateValueOn:NSControlStateValueOff];
+}
+- (void)assignShortcut:(id)sender {
+    NSString *key=_shortcutKey.stringValue;NSUInteger modifiers=0,masks[]={NSEventModifierFlagCommand,NSEventModifierFlagControl,NSEventModifierFlagOption,NSEventModifierFlagShift};for(NSUInteger i=0;i<4;++i)if([_shortcutModifiers[i] state]==NSControlStateValueOn)modifiers|=masks[i];
+    if(key.length>1&&[key.uppercaseString hasPrefix:@"F"]){NSInteger number=[[key substringFromIndex:1] integerValue];if(number>=1&&number<=20)key=[NSString stringWithFormat:@"%C",(unichar)(NSF1FunctionKey+number-1)];}
+    if(key.length>1){_shortcutStatus.stringValue=@"Enter one character or F1–F20. Leave the key empty to clear it.";return;}
+    if(![key isEqual:key.lowercaseString])modifiers|=NSEventModifierFlagShift;
+    _shortcutDraft[_commands[_shortcutChoice.indexOfSelectedItem][@"id"]]=@{@"key":key.lowercaseString,@"modifiers":@(modifiers)};
+    _shortcutStatus.stringValue=@"Assignment added to the draft. Apply checks conflicts and saves all assignments.";
+}
+- (void)resetShortcuts:(id)sender {[_shortcutDraft removeAllObjects];[self selectShortcut:nil];_shortcutStatus.stringValue=@"Default shortcuts restored in this draft.";}
+- (void)acceptShortcuts:(id)sender {NSError *error=nil;if(![self setShortcuts:_shortcutDraft error:&error]){_shortcutStatus.stringValue=error.localizedDescription;return;}[NSApp stopModal];[_dialog orderOut:nil];}
+- (void)editShortcutsForWindow:(NSWindow *)window {
+    _commands=self.commands;_shortcutDraft=[(_settings[@"shortcuts"] ?: @{}) mutableCopy];
+    _dialog=[[NSWindow alloc]initWithContentRect:NSMakeRect(0,0,720,300) styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];_dialog.title=@"Shortcut Editor";_dialog.appearance=window.appearance;
+    _shortcutChoice=[[NSPopUpButton alloc]initWithFrame:NSMakeRect(16,245,688,30) pullsDown:NO];[_shortcutChoice addItemsWithTitles:[_commands valueForKey:@"name"]];_shortcutChoice.target=self;_shortcutChoice.action=@selector(selectShortcut:);[_dialog.contentView addSubview:_shortcutChoice];
+    _shortcutKey=[[NSTextField alloc]initWithFrame:NSMakeRect(16,196,110,26)];_shortcutKey.placeholderString=@"Key or F1–F20";[_dialog.contentView addSubview:_shortcutKey];NSMutableArray *modifiers=[NSMutableArray new];NSUInteger i=0;
+    for(NSString *name in @[@"Command",@"Control",@"Option",@"Shift"]){NSButton *b=[NSButton checkboxWithTitle:name target:nil action:nil];b.frame=NSMakeRect(140+i++*120,196,116,26);[modifiers addObject:b];[_dialog.contentView addSubview:b];}_shortcutModifiers=modifiers;
+    _shortcutStatus=[NSTextField wrappingLabelWithString:@"Choose a command and set its key and modifiers. Assign updates the draft; Apply saves it. Clear a conflicting command before assigning its shortcut to another command."];_shortcutStatus.frame=NSMakeRect(16,74,688,70);[_dialog.contentView addSubview:_shortcutStatus];
+    NSArray *labels=@[@"Assign",@"Reset All",@"Cancel",@"Apply"];SEL actions[]={@selector(assignShortcut:),@selector(resetShortcuts:),@selector(cancel:),@selector(acceptShortcuts:)};
+    for(NSUInteger n=0;n<labels.count;++n){NSButton *b=[NSButton buttonWithTitle:labels[n] target:self action:actions[n]];b.frame=NSMakeRect(16+n*174,20,164,32);[_dialog.contentView addSubview:b];}
+    [self selectShortcut:nil];[_dialog center];[NSApp runModalForWindow:_dialog];_dialog=nil;
 }
 - (void)reset {
     NSError *error = nil;
