@@ -152,6 +152,7 @@ static void Alert(NSString *message) {
 - (void)closeSecondary:(id)sender;
 - (void)selectSecondary:(id)sender;
 - (void)bindSecondary:(NXDocument *)document;
+- (void)updateSecondaryChoices;
 - (NSDictionary *)secondaryRecord;
 - (void)restoreSecondary:(NSDictionary *)record;
 - (void)refreshEditorSettings;
@@ -524,6 +525,7 @@ static void Alert(NSString *message) {
     return YES;
 }
 - (void)tick:(id)sender {
+    [self updateSecondaryChoices];
     NSError *error = nil;
     self.snapshotFailed = ![self snapshot:&error];
     if (self.snapshotFailed) self.status.stringValue = [@"Recovery snapshot failed: " stringByAppendingString:error.localizedDescription];

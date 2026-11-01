@@ -23,6 +23,7 @@ NSDictionary *NXDefaultTheme(void) {
         @"boldKeywords":@NO, @"italicComments":@YES};
 }
 NSDictionary *NXDefaultConfiguration(void) { return @{@"languages":@[], @"themes":@[], @"selectedTheme":@""}; }
+NSDictionary *NXDefaultPreferences(void) {return @{@"font":@"JetBrains Mono",@"fontSize":@13,@"tabWidth":@4,@"useTabs":@NO,@"lineNumbers":@YES,@"whitespace":@NO,@"autoIndent":@YES,@"braceMatch":@YES,@"autoComplete":@NO,@"caretWidth":@1,@"blinkRate":@500,@"edgeColumn":@0,@"snapshotSeconds":@1,@"defaultEncoding":@0,@"defaultEOL":@(SC_EOL_LF),@"indentGuides":@YES,@"showEOL":@NO,@"highlightLine":@NO,@"wrap":@YES,@"dark":@YES};}
 static BOOL Color(id value) {
     if (![value isKindOfClass:NSString.class] || [value length] != 6) return NO;
     return [value rangeOfCharacterFromSet:[NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdefABCDEF"].invertedSet].location == NSNotFound;
@@ -49,6 +50,9 @@ BOOL NXValidateConfiguration(id value) {
                 if (![@[@"id", @"name", @"boldKeywords", @"italicComments"] containsObject:key] && !Color(record[key])) return NO;
             }
             if ([kind isEqual:@"languages"] && ([record[@"blockOpen"] length] == 0) != ([record[@"blockClose"] length] == 0)) return NO;
+            if([kind isEqual:@"languages"]){for(NSString *key in @[@"lineComment",@"blockOpen",@"blockClose",@"foldOpen",@"foldClose"])if([record[key] length]>32)return NO;
+                if([record[@"escape"] length]>1||![record[@"quotes"] canBeConvertedToEncoding:NSASCIIStringEncoding]||![record[@"escape"] canBeConvertedToEncoding:NSASCIIStringEncoding])return NO;
+            }
         }
     }
     if ([value[@"selectedTheme"] length] && ![[value[@"themes"] valueForKey:@"id"] containsObject:value[@"selectedTheme"]]) return NO;
@@ -93,8 +97,8 @@ void NXApplyTheme(ScintillaView *v, NSDictionary *theme, NSString *lexer, BOOL c
         // Lexilla publishes the semantic name of each named style; do not assume
         // that the same numeric style means a keyword in every language.
         for (int i = 0, count = static_cast<int>(S(v, SCI_GETNAMEDSTYLES)); i < count && i < 256; ++i) {
-            char name[512] = {}; S(v, SCI_NAMEOFSTYLE, i, reinterpret_cast<sptr_t>(name));
-            NSString *label = [@(name) lowercaseString], *key = nil;
+            auto length=S(v,SCI_NAMEOFSTYLE,i,0);if(length<0||length>4096)continue;std::vector<char> name(length+1);S(v, SCI_NAMEOFSTYLE, i, reinterpret_cast<sptr_t>(name.data()));
+            NSString *label = [@(name.data()) lowercaseString], *key = nil;
             if ([label containsString:@"comment"]) key = @"comment";
             else if ([label containsString:@"string"] || [label containsString:@"character"]) key = @"string";
             else if ([label containsString:@"number"]) key = @"number";
@@ -150,7 +154,8 @@ void NXStyleLanguage(ScintillaView *v, NSDictionary *language) {
     if(_selected<0||_selected>=(NSInteger)_records.count)return;
     NSMutableDictionary *record=_records[_selected];
     for(NSString *key in _controls){id control=_controls[key];
-        if([control isKindOfClass:NSButton.class])record[key]=@([control state]==NSControlStateValueOn);
+        if([control isKindOfClass:NSPopUpButton.class])record[key]=@([control indexOfSelectedItem]);
+        else if([control isKindOfClass:NSButton.class])record[key]=@([control state]==NSControlStateValueOn);
         else if([control isKindOfClass:NSColorWell.class]){NSColor *c=[[control color] colorUsingColorSpace:NSColorSpace.sRGBColorSpace];record[key]=[NSString stringWithFormat:@"%02X%02X%02X",(int)lround(c.redComponent*255),(int)lround(c.greenComponent*255),(int)lround(c.blueComponent*255)];}
         else if([record[key] isKindOfClass:NSNumber.class])record[key]=@([control doubleValue]);
         else record[key]=[control stringValue];
@@ -168,14 +173,15 @@ void NXStyleLanguage(ScintillaView *v, NSDictionary *language) {
     NSDictionary *labels=@{@"font":@"Default font family",@"fontSize":@"Font size (6–96)",@"tabWidth":@"Tab width (1–16)",@"useTabs":@"Indent with tabs",@"lineNumbers":@"Line numbers",@"autoIndent":@"Automatic indentation",@"braceMatch":@"Match braces",@"autoComplete":@"Word completion",@"indentGuides":@"Indent guides",@"showEOL":@"Show line endings",@"highlightLine":@"Highlight current line",@"wrap":@"Word wrap",@"dark":@"Dark appearance",@"caretWidth":@"Caret width (1–3)",@"blinkRate":@"Caret blink, ms (0–2000)",@"edgeColumn":@"Column guide (0 = off)",@"snapshotSeconds":@"Recovery interval, sec (1–60)",@"defaultEncoding":@"New files: 0 UTF8, 1 BOM, 2 LE, 3 BE",@"defaultEOL":@"New lines: 0 CRLF, 1 CR, 2 LF",@"extensions":@"Extensions (space separated)",@"lineComment":@"Line comment",@"blockOpen":@"Block comment start",@"blockClose":@"Block comment end",@"quotes":@"String quote characters",@"escape":@"Escape character",@"foldOpen":@"Fold opening token",@"foldClose":@"Fold closing token",@"caseSensitive":@"Case-sensitive keywords",@"boldKeywords":@"Bold keywords",@"italicComments":@"Italic comments"};
     CGFloat height=keys.count*40+16;form.frame=NSMakeRect(0,0,540,height);
     NSUInteger index=0;for(NSString *key in keys){CGFloat y=height-40*(++index);NSTextField *label=[NSTextField labelWithString:labels[key] ?: [key capitalizedString]];label.frame=NSMakeRect(8,y,272,26);[form addSubview:label];id control;
-        if([record[key] isKindOfClass:NSNumber.class]&&CFGetTypeID((__bridge CFTypeRef)record[key])==CFBooleanGetTypeID()){NSButton *check=[NSButton checkboxWithTitle:@"Enabled" target:nil action:nil];check.state=[record[key] boolValue]?NSControlStateValueOn:NSControlStateValueOff;control=check;}
+        if([key isEqual:@"defaultEncoding"]||[key isEqual:@"defaultEOL"]){NSPopUpButton *choice=[[NSPopUpButton alloc]initWithFrame:NSZeroRect pullsDown:NO];[choice addItemsWithTitles:[key isEqual:@"defaultEncoding"]?@[@"UTF-8",@"UTF-8 with BOM",@"UTF-16 Little Endian",@"UTF-16 Big Endian"]:@[@"Windows (CRLF)",@"Classic Mac (CR)",@"Unix / macOS (LF)"]];[choice selectItemAtIndex:[record[key] integerValue]];control=choice;label.stringValue=[key isEqual:@"defaultEncoding"]?@"New document encoding":@"New document line endings";}
+        else if([record[key] isKindOfClass:NSNumber.class]&&CFGetTypeID((__bridge CFTypeRef)record[key])==CFBooleanGetTypeID()){NSButton *check=[NSButton checkboxWithTitle:@"Enabled" target:nil action:nil];check.state=[record[key] boolValue]?NSControlStateValueOn:NSControlStateValueOff;control=check;}
         else if([_kind isEqual:@"themes"]&&Color(record[key])){NSColorWell *well=[NSColorWell new];unsigned n=RGB(record[key]);well.color=[NSColor colorWithSRGBRed:(n&255)/255.0 green:((n>>8)&255)/255.0 blue:((n>>16)&255)/255.0 alpha:1];control=well;}
         else {NSTextField *field=[NSTextField new];field.stringValue=[record[key] description] ?: @"";control=field;}
         [control setFrame:NSMakeRect(285,y,240,26)];[form addSubview:control];_controls[key]=control;
     }
     [_form.contentView scrollToPoint:NSMakePoint(0,MAX(0,height-_form.contentView.bounds.size.height))];
 }
-- (void)add:(id)sender {[self stash];if(_records.count>=100)return;NSMutableDictionary *r=[([_kind isEqual:@"languages"]?NXDefaultLanguage():NXDefaultTheme()) mutableCopy];r[@"name"]=[NSString stringWithFormat:@"My %@ %lu",[_kind isEqual:@"languages"]?@"Language":@"Theme",(unsigned long)_records.count+1];[_records addObject:r];[_list reloadData];[_list selectRowIndexes:[NSIndexSet indexSetWithIndex:_records.count-1] byExtendingSelection:NO];}
+- (void)add:(id)sender {[self stash];if([_kind isEqual:@"preferences"]){_records=[NSMutableArray arrayWithObject:[NXDefaultPreferences() mutableCopy]];_selected=0;[self showRecord];return;}if(_records.count>=100)return;NSMutableDictionary *r=[([_kind isEqual:@"languages"]?NXDefaultLanguage():NXDefaultTheme()) mutableCopy];r[@"name"]=[NSString stringWithFormat:@"My %@ %lu",[_kind isEqual:@"languages"]?@"Language":@"Theme",(unsigned long)_records.count+1];[_records addObject:r];[_list reloadData];[_list selectRowIndexes:[NSIndexSet indexSetWithIndex:_records.count-1] byExtendingSelection:NO];}
 - (void)duplicate:(id)sender {[self stash];if(_selected<0||_records.count>=100)return;NSMutableDictionary *r=[_records[_selected] mutableCopy];r[@"id"]=NSUUID.UUID.UUIDString;r[@"name"]=[r[@"name"] stringByAppendingString:@" Copy"];[_records addObject:r];[_list reloadData];[_list selectRowIndexes:[NSIndexSet indexSetWithIndex:_records.count-1] byExtendingSelection:NO];}
 - (void)remove:(id)sender {if(_selected<0)return;[_records removeObjectAtIndex:_selected];_selected=-1;[_list reloadData];[self showRecord];}
 - (BOOL)valid {if([_kind isEqual:@"preferences"])return _records.count==1&&NXValidatePreferences(_records[0]);NSMutableDictionary *config=[NXDefaultConfiguration() mutableCopy];config[_kind]=_records;return NXValidateConfiguration(config);}
@@ -193,7 +199,7 @@ void NXStyleLanguage(ScintillaView *v, NSDictionary *language) {
     _form=[[NSScrollView alloc]initWithFrame:NSMakeRect(240,66,548,480)];_form.hasVerticalScroller=YES;_form.hasHorizontalScroller=YES;[_window.contentView addSubview:_form];
     NSTextField *help=[NSTextField wrappingLabelWithString:@"Edit a draft, then Apply to save. Cancel leaves your current settings unchanged. Import replaces this draft; Export saves a portable JSON settings file."];help.frame=NSMakeRect(12,552,776,42);[_window.contentView addSubview:help];
     NSArray *names=@[@"New",@"Duplicate",@"Delete",@"Import…",@"Export…",@"Cancel",@"Apply"];SEL actions[]={@selector(add:),@selector(duplicate:),@selector(remove:),@selector(importRecords:),@selector(exportRecords:),@selector(cancel:),@selector(accept:)};
-    for(NSUInteger i=0;i<names.count;++i){NSButton *button=[NSButton buttonWithTitle:names[i] target:self action:actions[i]];button.frame=NSMakeRect(12+i*111,18,104,32);if(i<3&&[_kind isEqual:@"preferences"])button.enabled=NO;if(i==6)button.keyEquivalent=@"\r";if(i==5)button.keyEquivalent=@"\e";[_window.contentView addSubview:button];}
+    for(NSUInteger i=0;i<names.count;++i){NSButton *button=[NSButton buttonWithTitle:names[i] target:self action:actions[i]];button.frame=NSMakeRect(12+i*111,18,104,32);if([_kind isEqual:@"preferences"]){if(i==0)button.title=@"Reset";if(i==1||i==2)button.enabled=NO;}if(i==6)button.keyEquivalent=@"\r";if(i==5)button.keyEquivalent=@"\e";[_window.contentView addSubview:button];}
     [_list reloadData];if(_records.count)[_list selectRowIndexes:[NSIndexSet indexSetWithIndex:0] byExtendingSelection:NO];[_window center];[NSApp runModalForWindow:_window];return _accepted?[_records copy]:nil;
 }
 @end

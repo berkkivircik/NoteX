@@ -3,6 +3,7 @@
 #import <Cocoa/Cocoa.h>
 #import "ScintillaView.h"
 NSDictionary *NXDefaultConfiguration(void);
+NSDictionary *NXDefaultPreferences(void);
 NSDictionary *NXDefaultLanguage(void);
 NSDictionary *NXDefaultTheme(void);
 BOOL NXValidateConfiguration(id value);

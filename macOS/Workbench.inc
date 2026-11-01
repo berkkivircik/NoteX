@@ -32,6 +32,11 @@
     [self.secondaryChoice selectItemAtIndex:[self.documents indexOfObject:document]];
     Send(self.secondaryEditor,SCI_SETWRAPMODE,self.wrap?SC_WRAP_WORD:SC_WRAP_NONE);
     if(self.recording)Send(self.secondaryEditor,SCI_STARTRECORD);
+    if(self.secondaryFocused)document.activeEditor=self.secondaryEditor;
+}
+- (void)updateSecondaryChoices {
+    if(!self.secondaryVisible)return;NSArray *titles=[self.documents valueForKey:@"title"];
+    if(![self.secondaryChoice.itemTitles isEqual:titles]){[self.secondaryChoice removeAllItems];[self.secondaryChoice addItemsWithTitles:titles];NSInteger index=[self.documents indexOfObject:self.secondaryDocument];if(index>=0&&index<(NSInteger)self.documents.count)[self.secondaryChoice selectItemAtIndex:index];}
 }
 - (void)cloneView:(id)sender {
     NXDocument *document=self.current;if(!document)return;
@@ -39,9 +44,9 @@
     if([sender tag]==1)self.editorSplit.vertical=YES;else if([sender tag]==2)self.editorSplit.vertical=NO;
     [self bindSecondary:document];[self.editorSplit adjustSubviews];[self.editorSplit setPosition:(self.editorSplit.vertical?self.editorSplit.bounds.size.width:self.editorSplit.bounds.size.height)/2 ofDividerAtIndex:0];
     Send(self.secondaryEditor,SCI_SETSEL,Send(document.primaryEditor,SCI_GETANCHOR),Send(document.primaryEditor,SCI_GETCURRENTPOS));
-    [self.window makeFirstResponder:self.secondaryEditor];[self tick:nil];
+    self.secondaryFocused=YES;document.activeEditor=self.secondaryEditor;[self.window makeFirstResponder:self.secondaryEditor];[self tick:nil];
 }
-- (void)selectSecondary:(id)sender {NSInteger i=self.secondaryChoice.indexOfSelectedItem;if(i>=0&&i<(NSInteger)self.documents.count){self.secondaryFocused=NO;[self bindSecondary:self.documents[i]];[self.window makeFirstResponder:self.secondaryEditor];[self tick:nil];}}
+- (void)selectSecondary:(id)sender {NSInteger i=self.secondaryChoice.indexOfSelectedItem;if(i>=0&&i<(NSInteger)self.documents.count){[self bindSecondary:self.documents[i]];self.secondaryFocused=YES;self.secondaryDocument.activeEditor=self.secondaryEditor;[self.window makeFirstResponder:self.secondaryEditor];[self tick:nil];}}
 - (void)closeSecondary:(id)sender {
     self.secondaryDocument.activeEditor=nil;self.secondaryFocused=NO;self.secondaryVisible=NO;self.secondaryDocument=nil;
     [self.secondaryHost removeFromSuperview];Send(self.secondaryEditor,SCI_SETDOCPOINTER,0,0);[self.editorSplit adjustSubviews];[self.window makeFirstResponder:self.current.primaryEditor];[self tick:nil];

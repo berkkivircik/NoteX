@@ -6,6 +6,7 @@
 #import <CommonCrypto/CommonDigest.h>
 #include <fcntl.h>
 #include <sys/file.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <cerrno>
 
@@ -33,6 +34,8 @@ BOOL NXWrite(NSData *data, NSString *path, NSError **error) {
         if (error) *error = [NSError errorWithDomain:NSPOSIXErrorDomain code:errno userInfo:nil];
         return NO;
     }
+    struct stat original{};
+    if(lstat(path.fileSystemRepresentation,&original)==0 && S_ISREG(original.st_mode) && fchmod(fd,original.st_mode&0777)!=0){int failure=errno;close(fd);unlink(temp.fileSystemRepresentation);if(error)*error=[NSError errorWithDomain:NSPOSIXErrorDomain code:failure userInfo:nil];return NO;}
     auto bytes = static_cast<const char *>(data.bytes);
     NSUInteger offset = 0;
     while (offset < data.length) {
