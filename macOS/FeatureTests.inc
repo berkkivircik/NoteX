@@ -106,6 +106,7 @@ static NSMenuItem *FindMenuCommand(NSMenu *menu, SEL action, NSInteger tag) {
     Check(Send(doc.editor, SCI_GETTABWIDTH) == 2 && Send(doc.editor, SCI_GETMARGINWIDTHN, 0) == 0, "apply native editor preferences");
     Check(Send(doc.editor, SCI_GETVIEWWS) == SCWS_VISIBLEALWAYS, "apply visible whitespace preference");
     SetText(doc.editor, [@"a\nb\n" dataUsingEncoding:NSUTF8StringEncoding]);
+    Send(doc.editor, SCI_GOTOPOS, 0);
     [self bookmark:TestCommand(0)]; [self bookmark:TestCommand(1)];
     Check(Send(doc.editor, SCI_MARKERGET, 0) & 1, "bookmark margin and navigation commands");
     [self convertEOL:TestCommand(SC_EOL_CRLF)];

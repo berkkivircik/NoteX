@@ -85,11 +85,16 @@ static NSDictionary *DecodeSession(NSData *data) {
         ![root[@"documents"] isKindOfClass:NSArray.class] || ![root[@"selected"] isKindOfClass:NSNumber.class]) return nil;
     NSArray *documents = root[@"documents"];
     if (documents.count > 1000) return nil;
+    for (NSString *key in @[@"dark", @"wrap", @"sidebarVisible"])
+        if (root[key] && ![root[key] isKindOfClass:NSNumber.class]) return nil;
     // Optional fields preserve compatibility with the first native release.
     // Reject damaged additions instead of silently resetting project or macro data.
     if (root[@"workspace"]) {
         id workspace = root[@"workspace"];
         if (![workspace isKindOfClass:NSDictionary.class] || ![workspace[@"projects"] isKindOfClass:NSArray.class] || [workspace[@"projects"] count] != 3 || ![workspace[@"folders"] isKindOfClass:NSArray.class]) return nil;
+        for (NSString *key in @[@"panel", @"sorted"])
+            if (workspace[key] && ![workspace[key] isKindOfClass:NSNumber.class]) return nil;
+        if (workspace[@"ruleOverride"] && ![workspace[@"ruleOverride"] isKindOfClass:NSString.class]) return nil;
         for (id path in workspace[@"folders"]) if (![path isKindOfClass:NSString.class]) return nil;
         for (id project in workspace[@"projects"]) {
             NSUInteger count = 0;
