@@ -119,6 +119,7 @@
 - (void)chooseLanguage:(id)sender {NSArray *languages=self.configuration[@"languages"];NSInteger index=[self chooseRecord:languages title:@"User-Defined Language" first:@"Use Selected Syntax Lexer"];if(index<0)return;self.current.customLanguage=index?languages[index-1][@"id"]:@"";[self refreshEditorSettings];[self tick:nil];}
 - (void)collectProjectFiles:(NSDictionary *)node into:(NSMutableArray *)files {if([node[@"kind"] isEqual:@"file"])[files addObject:node[@"path"]];for(NSDictionary *child in node[@"children"])[self collectProjectFiles:child into:files];}
 - (NSArray *)searchScope:(NSInteger)scope {
+    if(scope==3){NXDocument *doc=self.current;return @[@{@"id":doc.identifier,@"path":doc.path,@"title":doc.title,@"text":Text(doc.primaryEditor)}];}
     NSMutableArray *files=[NSMutableArray new];if(scope==1){for(NXDocument *doc in self.documents)[files addObject:@{@"id":doc.identifier,@"path":doc.path,@"title":doc.title,@"text":Text(doc.primaryEditor)}];}
     else for(NSDictionary *root in self.workspace.projects)[self collectProjectFiles:root into:files];return files;
 }
@@ -129,7 +130,7 @@
 - (NXDocument *)documentForResult:(NSDictionary *)result {for(NXDocument *doc in self.documents)if(([result[@"id"] length]&&[doc.identifier isEqual:result[@"id"]])||([result[@"path"] length]&&[NXCanonicalPath(doc.path) isEqual:NXCanonicalPath(result[@"path"])]))return doc;return nil;}
 - (void)navigateResult:(NSDictionary *)result {
     NXDocument *doc=[self documentForResult:result];NSError *error=nil;
-    if(!doc){if(![result[@"path"] length]||![self openPath:result[@"path"] error:&error]){Alert(error.localizedDescription ?: @"This tab is no longer open. Run the search again.");return;}doc=self.current;}
+    if(!doc){self.openingEncoding=[result[@"encoding"] unsignedLongLongValue];BOOL opened=[result[@"path"] length]&&[self openPath:result[@"path"] error:&error];self.openingEncoding=0;if(!opened){Alert(error.localizedDescription ?: @"This tab is no longer open. Run the search again.");return;}doc=self.current;}
     if(![NXDigest(Text(doc.primaryEditor)) isEqual:result[@"textHash"]]){Alert(@"This document changed after the search. Run the search again before navigating to the match.");return;}
     self.secondaryFocused=NO;self.secondaryDocument.activeEditor=nil;[self.tabs selectTabViewItem:doc.tab];Send(doc.primaryEditor,SCI_SETSEL,[result[@"position"] unsignedLongLongValue],[result[@"position"] longLongValue]+[result[@"length"] longLongValue]);[self.window makeKeyAndOrderFront:nil];[self.window makeFirstResponder:doc.primaryEditor];
 }
@@ -149,7 +150,7 @@
         if(doc&&path.length&&!inMemory&&doc.dirty)reason=@"The open document has unsaved changes.";
         if(doc&&![NXDigest(Text(doc.primaryEditor)) isEqual:first[@"textHash"]])reason=@"The document changed after the preview.";
         NSString *companion=[path stringByAppendingString:@".notex"];NSData *sidecar=path.length&&!inMemory?[NSData dataWithContentsOfFile:companion]:nil;
-        if(sidecar){NoteX::State state;NSString *text=NXDecodeText(disk);if(!text||!NXReadCompanion(sidecar,[text dataUsingEncoding:NSUTF8StringEncoding],state))reason=@"The formatting companion is invalid or belongs to different text.";}
+        if(sidecar){NoteX::State state;NSString *text=NXDecodeText(disk) ?: NXDecodeEncoding(disk,[first[@"encoding"] unsignedLongLongValue]);if(!text||!NXReadCompanion(sidecar,[text dataUsingEncoding:NSUTF8StringEncoding],state))reason=@"The formatting companion is invalid or belongs to different text.";}
         NSString *prefix=[NSString stringWithFormat:@"%04lu-",(unsigned long)(changed+skipped)];
         if(!reason&&path.length&&!inMemory){if(!NXWrite(disk,[backup stringByAppendingPathComponent:[prefix stringByAppendingString:path.lastPathComponent]],&error)||(sidecar&&!NXWrite(sidecar,[backup stringByAppendingPathComponent:[[prefix stringByAppendingString:path.lastPathComponent] stringByAppendingString:@".notex"]],&error)))reason=error.localizedDescription;}
         if(!reason&&path.length&&!inMemory){
@@ -158,7 +159,7 @@
             NSData *journal=[NSJSONSerialization dataWithJSONObject:recovery options:NSJSONWritingPrettyPrinted error:&error];
             if(!journal||!NXWrite(journal,[backup stringByAppendingPathComponent:@"recovery.json"],&error))reason=error.localizedDescription ?: @"The recovery map could not be saved.";
         }
-        if(!reason&&!doc){if(![self openPath:path error:&error])reason=error.localizedDescription;else doc=self.current;}
+        if(!reason&&!doc){self.openingEncoding=[first[@"encoding"] unsignedLongLongValue];if(![self openPath:path error:&error])reason=error.localizedDescription;else doc=self.current;self.openingEncoding=0;}
         if(!reason&&![NXDigest(Text(doc.primaryEditor)) isEqual:first[@"textHash"]])reason=@"The file changed while it was being opened.";
         if(reason){++skipped;[report addObject:@{@"path":path,@"status":@"skipped",@"reason":reason}];continue;}
         auto *view=doc.primaryEditor;Send(view,SCI_BEGINUNDOACTION);for(NSDictionary *match in matches){NSData *replacement=[match[@"replacement"] dataUsingEncoding:NSUTF8StringEncoding];Send(view,SCI_SETTARGETSTART,[match[@"position"] unsignedLongLongValue]);Send(view,SCI_SETTARGETEND,[match[@"position"] unsignedLongLongValue]+[match[@"length"] unsignedLongLongValue]);Send(view,SCI_REPLACETARGET,replacement.length,reinterpret_cast<sptr_t>(replacement.bytes));}Send(view,SCI_ENDUNDOACTION);

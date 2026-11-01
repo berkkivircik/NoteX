@@ -22,6 +22,7 @@
 #import "DocumentMap.h"
 #import "RunTool.h"
 #import "UserLanguage.h"
+#import "Codecs.h"
 #import <CommonCrypto/CommonDigest.h>
 
 static sptr_t Send(ScintillaView *view, unsigned message, uptr_t w = 0, sptr_t l = 0) {
@@ -93,7 +94,7 @@ static void Alert(NSString *message) {
 }
 @end
 
-@interface NXApp : NSObject <NSApplicationDelegate, NSWindowDelegate, NSTabViewDelegate, ScintillaNotificationProtocol>
+@interface NXApp : NSObject <NSApplicationDelegate, NSWindowDelegate, NSTabViewDelegate, ScintillaNotificationProtocol, NSTextFieldDelegate>
 @property NSWindow *window;
 @property NSTabView *tabs;
 @property NSMutableArray<NXDocument *> *documents;
@@ -153,6 +154,7 @@ static void Alert(NSString *message) {
 @property BOOL focusMode;
 @property NSString *hintName;
 @property NSInteger hintIndex;
+@property BOOL searchTyping;
 - (NXDocument *)current;
 - (void)runToolCommand:(id)sender;
 - (NXDocument *)restoreDocumentRecord:(NSDictionary *)record;
@@ -260,6 +262,8 @@ static void Alert(NSString *message) {
 - (void)searchUtility:(id)sender;
 - (void)matchingBrace:(id)sender;
 - (void)buildSearchMenus;
+- (void)searchResult:(id)sender;
+- (void)incrementalSearch;
 @end
 @interface NXApp (EncodingCommands)
 - (void)legacyEncoding:(id)sender;
@@ -438,6 +442,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
     toolbar.spacing = 6;
     toolbar.edgeInsets = NSEdgeInsetsMake(8, 10, 8, 10);
     self.findText = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 0, 180, 24)];
+    self.findText.delegate=self;
     self.findText.placeholderString = @"Find";
     self.findText.target = self; self.findText.action = @selector(findNext:);
     self.replaceText = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 0, 180, 24)];
@@ -675,7 +680,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
     if (!self.snapshotFailed) self.status.stringValue = [NSString stringWithFormat:@"  Line %ld   Column %ld   %@   %lu characters",
         (long)Send(doc.editor, SCI_LINEFROMPOSITION, Send(doc.editor, SCI_GETCURRENTPOS)) + 1,
         (long)Send(doc.editor, SCI_GETCOLUMN, Send(doc.editor, SCI_GETCURRENTPOS)) + 1,
-        [NSString localizedNameOfStringEncoding:doc.encoding], (unsigned long)doc.editor.string.length];
+        NXEncodingName(doc.encoding), (unsigned long)doc.editor.string.length];
 }
 - (void)tabView:(NSTabView *)tabView didSelectTabViewItem:(NSTabViewItem *)tabViewItem {
     self.secondaryFocused=NO;for(NXDocument *doc in self.documents)doc.activeEditor=nil;
@@ -740,7 +745,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
     else if (disk.length >= 2 && bytes[0] == 0xff && bytes[1] == 0xfe) { encoding = NSUTF16LittleEndianStringEncoding; bom = YES; content = [disk subdataWithRange:NSMakeRange(2, disk.length - 2)]; }
     else if (disk.length >= 2 && bytes[0] == 0xfe && bytes[1] == 0xff) { encoding = NSUTF16BigEndianStringEncoding; bom = YES; content = [disk subdataWithRange:NSMakeRange(2, disk.length - 2)]; }
     if(self.openingEncoding&&!bom)encoding=self.openingEncoding;
-    NSString *string = [[NSString alloc] initWithData:content encoding:encoding];
+    NSString *string = NXDecodeEncoding(content,encoding);
     if (!string || [string rangeOfString:[NSString stringWithFormat:@"%C", (unichar)0]].location != NSNotFound) {
         if (error) *error = NXError(@"This file could not be decoded as text. Use Encoding > Open with Legacy Encoding to select its encoding. It has not been modified."); return NO;
     }
@@ -791,7 +796,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
     }
     NSData *text = Text(doc.editor);
     NSString *string = [[NSString alloc] initWithData:text encoding:NSUTF8StringEncoding];
-    NSData *encoded = [string dataUsingEncoding:doc.encoding allowLossyConversion:NO];
+    NSData *encoded = NXEncodeText(string,doc.encoding);
     if (!encoded) { if (error) *error = NXError(@"The text cannot be represented in the selected encoding."); return NO; }
     NSMutableData *disk = [NSMutableData new];
     if (doc.bom) {

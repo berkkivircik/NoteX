@@ -2,6 +2,17 @@
 // Commands run only after an explicit Run action; output is bounded in memory.
 #import "RunTool.h"
 #import "Storage.h"
+#include <spawn.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <poll.h>
+#include <sys/wait.h>
+#include <signal.h>
+#include <vector>
+#include <string>
+@implementation NXCommandTask
+- (void)terminate {if(self.running&&self.processIdentifier>0)kill(-self.processIdentifier,SIGTERM);}
+@end
 @implementation NXRunTool {
     NSTextField *_name,*_command,*_status;
     NSPopUpButton *_saved;
@@ -13,19 +24,37 @@
 - (BOOL)launchCommand:(NSString *)command environment:(NSDictionary *)environment error:(NSError **)error {
     if(self.task.running){if(error)*error=NXError(@"A command is already running. Stop it before starting another.");return NO;}
     if(!command.length||command.length>65536){if(error)*error=NXError(@"Enter a command of at most 65,536 characters.");return NO;}
-    self.captured=[NSMutableData new];self.output=@"";self.task=[NSTask new];self.task.executableURL=[NSURL fileURLWithPath:@"/bin/zsh"];self.task.arguments=@[@"-lc",command];
-    NSMutableDictionary *variables=[NSProcessInfo.processInfo.environment mutableCopy];[variables addEntriesFromDictionary:environment ?: @{}];self.task.environment=variables;
-    if([environment[@"NOTEX_DIRECTORY"] length])self.task.currentDirectoryURL=[NSURL fileURLWithPath:environment[@"NOTEX_DIRECTORY"]];
-    _pipe=[NSPipe pipe];self.task.standardOutput=_pipe;self.task.standardError=_pipe;self.task.standardInput=NSFileHandle.fileHandleWithNullDevice;
-    __weak NXRunTool *owner=self;
-    _pipe.fileHandleForReading.readabilityHandler=^(NSFileHandle *handle){NSData *data=handle.availableData;if(!data.length){handle.readabilityHandler=nil;return;}NXRunTool *strong=owner;if(!strong)return;@synchronized(strong){NSUInteger available=strong.captured.length<1024*1024?1024*1024-strong.captured.length:0;if(available)[strong.captured appendData:[data subdataWithRange:NSMakeRange(0,MIN(data.length,available))]];}};
-    self.task.terminationHandler=^(NSTask *task){dispatch_after(dispatch_time(DISPATCH_TIME_NOW,100*NSEC_PER_MSEC),dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{NXRunTool *strong=owner;if(!strong)return;
-        // Never wait for EOF on the UI thread: a child may retain the pipe.
-        strong->_pipe.fileHandleForReading.readabilityHandler=nil;
-        @synchronized(strong){strong.output=[[NSString alloc]initWithData:strong.captured encoding:NSUTF8StringEncoding] ?: @"The command produced non-UTF-8 output.";}
-        dispatch_async(dispatch_get_main_queue(),^{strong->_outputView.string=strong.output;strong->_status.stringValue=[NSString stringWithFormat:@"Exit status: %d%@",task.terminationStatus,strong.captured.length>=1024*1024?@" — output limited to 1 MB":@""];strong->_run.enabled=YES;strong->_stop.enabled=NO;});
-    });};
-    if(![self.task launchAndReturnError:error]){_pipe.fileHandleForReading.readabilityHandler=nil;return NO;}_run.enabled=NO;_stop.enabled=YES;_status.stringValue=@"Running…";return YES;
+    self.captured=[NSMutableData new];self.output=@"";
+    NSMutableDictionary *variables=[NSProcessInfo.processInfo.environment mutableCopy];[variables addEntriesFromDictionary:environment ?: @{}];
+    std::vector<std::string> storage;for(NSString *key in variables)storage.push_back(std::string(key.UTF8String)+"="+[variables[key] UTF8String]);
+    std::vector<char *> env;for(auto &entry:storage)env.push_back(entry.data());env.push_back(nullptr);
+    std::string executable="/bin/zsh",option="-lc",script=command.UTF8String;char *arguments[]={executable.data(),option.data(),script.data(),nullptr};
+    int descriptors[2];if(pipe(descriptors)!=0){if(error)*error=[NSError errorWithDomain:NSPOSIXErrorDomain code:errno userInfo:nil];return NO;}
+    posix_spawn_file_actions_t actions;posix_spawn_file_actions_init(&actions);
+    posix_spawn_file_actions_adddup2(&actions,descriptors[1],STDOUT_FILENO);posix_spawn_file_actions_adddup2(&actions,descriptors[1],STDERR_FILENO);
+    posix_spawn_file_actions_addclose(&actions,descriptors[0]);posix_spawn_file_actions_addclose(&actions,descriptors[1]);posix_spawn_file_actions_addopen(&actions,STDIN_FILENO,"/dev/null",O_RDONLY,0);
+    if([environment[@"NOTEX_DIRECTORY"] length])posix_spawn_file_actions_addchdir_np(&actions,[environment[@"NOTEX_DIRECTORY"] fileSystemRepresentation]);
+    posix_spawnattr_t attributes;posix_spawnattr_init(&attributes);posix_spawnattr_setflags(&attributes,POSIX_SPAWN_SETPGROUP);posix_spawnattr_setpgroup(&attributes,0);
+    pid_t pid=0;int failure=posix_spawn(&pid,executable.c_str(),&actions,&attributes,arguments,env.data());posix_spawn_file_actions_destroy(&actions);posix_spawnattr_destroy(&attributes);close(descriptors[1]);
+    if(failure){close(descriptors[0]);if(error)*error=[NSError errorWithDomain:NSPOSIXErrorDomain code:failure userInfo:nil];return NO;}
+    fcntl(descriptors[0],F_SETFL,fcntl(descriptors[0],F_GETFL)|O_NONBLOCK);
+    self.task=[NXCommandTask new];self.task.processIdentifier=pid;self.task.running=YES;NXCommandTask *task=self.task;
+    _run.enabled=NO;_stop.enabled=YES;_status.stringValue=@"Running…";int fd=descriptors[0];
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{
+        BOOL exited=NO,eof=NO;int status=0;NSTimeInterval exitTime=0;
+        while(!exited||!eof){
+            struct pollfd descriptor={fd,POLLIN|POLLHUP,0};poll(&descriptor,1,50);char bytes[16384];ssize_t length;
+            while((length=read(fd,bytes,sizeof bytes))>0){NSUInteger available=self.captured.length<1024*1024?1024*1024-self.captured.length:0;if(available)[self.captured appendBytes:bytes length:MIN((NSUInteger)length,available)];}
+            if(length==0)eof=YES;
+            if(!exited&&waitpid(pid,&status,WNOHANG)==pid){exited=YES;exitTime=NSProcessInfo.processInfo.systemUptime;}
+            // Detached descendants must redirect their own output. Never hang the UI
+            // or retain a command indefinitely just because they inherited a pipe.
+            if(exited&&NSProcessInfo.processInfo.systemUptime-exitTime>0.2)break;
+        }
+        close(fd);self.output=[[NSString alloc]initWithData:self.captured encoding:NSUTF8StringEncoding] ?: @"The command produced non-UTF-8 output.";
+        task.terminationStatus=WIFEXITED(status)?WEXITSTATUS(status):128+WTERMSIG(status);task.running=NO;
+        dispatch_async(dispatch_get_main_queue(),^{self->_outputView.string=self.output;self->_status.stringValue=[NSString stringWithFormat:@"Exit status: %d%@",task.terminationStatus,self.captured.length>=1024*1024?@" — output limited to 1 MB":@""];self->_run.enabled=YES;self->_stop.enabled=NO;});
+    });return YES;
 }
 - (void)run:(id)sender {NSError *error=nil;if(![self launchCommand:_command.stringValue environment:self.documentEnvironment?self.documentEnvironment():@{} error:&error])[NSApp presentError:error];}
 - (void)stop:(id)sender {if(self.task.running)[self.task terminate];}

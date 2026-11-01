@@ -7,6 +7,7 @@ import concurrent.futures
 import os
 import json
 from languages import catalog
+from codecs_catalog import encoding_tables
 from pathlib import Path
 import plistlib
 import shutil
@@ -85,6 +86,7 @@ def main():
     shutil.copy2(ROOT / "scintilla/License.txt", resources / "Scintilla-LICENSE.txt")
     shutil.copy2(ROOT / "lexilla/License.txt", resources / "Lexilla-LICENSE.txt")
     shutil.copy2(ROOT / "macOS/README.md", resources / "README.md")
+    (resources / "encodings.json").write_text(json.dumps(encoding_tables()), encoding="utf-8")
     (resources / "languages.json").write_text(json.dumps(catalog(ROOT), ensure_ascii=False), encoding="utf-8")
     shutil.copytree(ROOT / "PowerEditor/Packaging/NoteX/assets/fonts", resources / "Fonts")
     for source in (ROOT / "scintilla/cocoa/res").glob("*.png"):

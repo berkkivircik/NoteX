@@ -34,7 +34,7 @@
     for(NXDocument *doc in self.documents)if(doc.monitoring){
         NSData *disk=[NSData dataWithContentsOfFile:doc.path options:NSDataReadingMappedIfSafe error:nil];if(!disk||disk.length>16*1024*1024){doc.monitoring=NO;Send(doc.primaryEditor,SCI_SETREADONLY,0);self.status.stringValue=@"File monitoring stopped: the file is missing, unreadable, or larger than 16 MB.";continue;}
         NSData *hash=NXDigest(disk);if([hash isEqual:doc.diskHash])continue;
-        NSString *text=NXDecodeText(disk);if(!text)text=[[NSString alloc]initWithData:disk encoding:doc.encoding];if(!text||doc.dirty){doc.monitoring=NO;Send(doc.primaryEditor,SCI_SETREADONLY,0);self.status.stringValue=@"File monitoring stopped to preserve the document.";continue;}
+        NSString *text=NXDecodeText(disk);if(!text)text=NXDecodeEncoding(disk,doc.encoding);if(!text||doc.dirty){doc.monitoring=NO;Send(doc.primaryEditor,SCI_SETREADONLY,0);self.status.stringValue=@"File monitoring stopped to preserve the document.";continue;}
         Send(doc.primaryEditor,SCI_SETREADONLY,0);SetText(doc.primaryEditor,[text dataUsingEncoding:NSUTF8StringEncoding]);doc.diskHash=hash;NoteX::State state;
         if(NXReadCompanion([NSData dataWithContentsOfFile:[doc.path stringByAppendingString:@".notex"]],Text(doc.primaryEditor),state))Restore(doc.primaryEditor,state);
         Send(doc.primaryEditor,SCI_GOTOPOS,Send(doc.primaryEditor,SCI_GETLENGTH));Send(doc.primaryEditor,SCI_SETREADONLY,1);

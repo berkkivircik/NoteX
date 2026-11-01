@@ -2,6 +2,7 @@
 // Searches are read-only; replacement plans are committed by the editor's save path.
 #import "FileSearch.h"
 #import "Storage.h"
+#import "Codecs.h"
 #include <fnmatch.h>
 
 NSString *NXDecodeText(NSData *data) {
@@ -79,19 +80,20 @@ NSArray *NXSearchFiles(NSArray *inputs, NSDictionary *options, BOOL (^cancelled)
         if(!document){NSDictionary *attributes=[NSFileManager.defaultManager attributesOfItemAtPath:path error:nil];if([attributes[NSFileType] isEqual:NSFileTypeSymbolicLink]||[attributes[NSFileSize] unsignedLongLongValue]>16*1024*1024)continue;}
         NSData *disk=document?document[@"text"]:[NSData dataWithContentsOfFile:path];
         if(disk.length>16*1024*1024)continue;
-        NSString *text=document?[[NSString alloc]initWithData:disk encoding:NSUTF8StringEncoding]:NXDecodeText(disk);if(!text)continue;
+        NSString *text=document?[[NSString alloc]initWithData:disk encoding:NSUTF8StringEncoding]:NXDecodeText(disk);NSStringEncoding fallback=0;if(!text&&!document&&[options[@"encoding"] unsignedLongLongValue]){fallback=[options[@"encoding"] unsignedLongLongValue];text=NXDecodeEncoding(disk,fallback);}if(!text||[text rangeOfString:[NSString stringWithFormat:@"%C",(unichar)0]].location!=NSNotFound)continue;
         NSArray *matches=NXSearchMatches(text,options,error);if(!matches)return nil;
         NSData *textHash=NXDigest([text dataUsingEncoding:NSUTF8StringEncoding]),*diskHash=NXDigest(disk);
-        for(NSDictionary *match in matches){NSMutableDictionary *r=[match mutableCopy];r[@"path"]=path ?: @"";r[@"id"]=document?document[@"id"]:@"";r[@"title"]=document?document[@"title"]:path.lastPathComponent;r[@"textHash"]=textHash;r[@"diskHash"]=diskHash;[results addObject:r];
+        for(NSDictionary *match in matches){NSMutableDictionary *r=[match mutableCopy];r[@"path"]=path ?: @"";r[@"id"]=document?document[@"id"]:@"";r[@"title"]=document?document[@"title"]:path.lastPathComponent;r[@"textHash"]=textHash;r[@"diskHash"]=diskHash;r[@"encoding"]=@(fallback);[results addObject:r];
             if(results.count>=20000){if(error)*error=NXError(@"The search reached 20,000 matches. Narrow the search before replacing.");return nil;}}
     }}return results;
 }
 
 @implementation NXFileSearch {
-    NSTextField *_query,*_replacement,*_folder,*_include,*_exclude,*_status;NSPopUpButton *_scope,*_engine;
+    NSTextField *_query,*_replacement,*_folder,*_include,*_exclude,*_status;NSPopUpButton *_scope,*_engine,*_encoding;
     NSButton *_regex,*_case,*_word,*_recursive,*_hidden,*_find,*_apply;
     NSTableView *_table;NSArray *_results;NSOperationQueue *_queue;NSUInteger _generation;BOOL _busy;
 }
+- (void)navigateBy:(NSInteger)direction {if(!_results.count)return;NSInteger row=(_table.selectedRow+direction+_results.count)%_results.count;[_table selectRowIndexes:[NSIndexSet indexSetWithIndex:row] byExtendingSelection:NO];[_table scrollRowToVisible:row];if(self.navigate)self.navigate(_results[row]);}
 - (instancetype)init {self=[super initWithWindow:nil];if(self){_queue=[NSOperationQueue new];_queue.maxConcurrentOperationCount=1;_results=@[];}return self;}
 - (NSInteger)numberOfRowsInTableView:(NSTableView *)table{return _results.count;}
 - (NSView *)tableView:(NSTableView *)table viewForTableColumn:(NSTableColumn *)column row:(NSInteger)row {NSDictionary *r=_results[row];NSString *value=[column.identifier isEqual:@"file"]?([r[@"path"] length]?r[@"path"]:r[@"title"]):[r[column.identifier] description];NSTextField *text=[NSTextField labelWithString:value ?: @""];text.toolTip=value;return text;}
@@ -100,14 +102,15 @@ NSArray *NXSearchFiles(NSArray *inputs, NSDictionary *options, BOOL (^cancelled)
     if(!self.window){self.window=[[NSWindow alloc]initWithContentRect:NSMakeRect(0,0,920,650) styleMask:NSWindowStyleMaskTitled|NSWindowStyleMaskClosable backing:NSBackingStoreBuffered defer:NO];self.window.releasedWhenClosed=NO;self.window.title=@"Find in Files";
         _query=[self field:@"Find" value:@"" y:604];_replacement=[self field:@"Replace with" value:@"" y:570];_folder=[self field:@"Folder" value:@"" y:536];_include=[self field:@"File filters" value:@"*" y:502];_exclude=[self field:@"Exclude" value:@".git;*.notex;*.app" y:468];
         NSButton *browse=[NSButton buttonWithTitle:@"Choose…" target:self action:@selector(browse:)];_folder.frame=NSMakeRect(130,536,680,26);browse.frame=NSMakeRect(814,536,100,26);[self.window.contentView addSubview:browse];
-        _scope=[[NSPopUpButton alloc]initWithFrame:NSMakeRect(16,426,180,28) pullsDown:NO];[_scope addItemsWithTitles:@[@"Folder",@"Open Documents",@"All Project Panels"]];[self.window.contentView addSubview:_scope];
+        _scope=[[NSPopUpButton alloc]initWithFrame:NSMakeRect(16,426,180,28) pullsDown:NO];[_scope addItemsWithTitles:@[@"Folder",@"Open Documents",@"All Project Panels",@"Current Document"]];[self.window.contentView addSubview:_scope];
         NSArray *labels=@[@"Regex",@"Match case",@"Whole word",@"Subfolders",@"Hidden files"];NSMutableArray *checks=[NSMutableArray new];
         for(NSUInteger i=0;i<labels.count;++i){NSButton *b=[NSButton checkboxWithTitle:labels[i] target:nil action:nil];b.frame=NSMakeRect(210+i*137,426,135,28);[self.window.contentView addSubview:b];[checks addObject:b];}
         _regex=checks[0];_case=checks[1];_word=checks[2];_recursive=checks[3];_hidden=checks[4];_recursive.state=NSControlStateValueOn;
         _find=[NSButton buttonWithTitle:@"Find / Preview" target:self action:@selector(search:)];_find.frame=NSMakeRect(16,382,150,30);[self.window.contentView addSubview:_find];
         NSButton *cancel=[NSButton buttonWithTitle:@"Cancel Search" target:self action:@selector(cancelSearch:)];cancel.frame=NSMakeRect(178,382,140,30);[self.window.contentView addSubview:cancel];
         _apply=[NSButton buttonWithTitle:@"Apply Previewed Replacements…" target:self action:@selector(replace:)];_apply.frame=NSMakeRect(330,382,290,30);_apply.enabled=NO;[self.window.contentView addSubview:_apply];
-        _engine=[[NSPopUpButton alloc]initWithFrame:NSMakeRect(16,28,280,26) pullsDown:NO];[_engine addItemsWithTitles:@[@"ICU regular expressions",@"Boost.Regex (Windows-compatible)"]];[self.window.contentView addSubview:_engine];
+        _engine=[[NSPopUpButton alloc]initWithFrame:NSMakeRect(16,30,280,24) pullsDown:NO];[_engine addItemsWithTitles:@[@"ICU regular expressions",@"Boost.Regex (Windows-compatible)"]];[self.window.contentView addSubview:_engine];
+        _encoding=[[NSPopUpButton alloc]initWithFrame:NSMakeRect(16,4,280,24) pullsDown:NO];[_encoding addItemWithTitle:@"UTF-8 / UTF-16 (Automatic)"];for(NSDictionary *encoding in NXSingleByteEncodings()){[_encoding addItemWithTitle:[@"Fallback: " stringByAppendingString:encoding[@"name"]]];_encoding.lastItem.representedObject=encoding[@"encoding"];}[self.window.contentView addSubview:_encoding];
         NSButton *backups=[NSButton buttonWithTitle:@"Open Backups" target:self action:@selector(backups:)];backups.frame=NSMakeRect(640,382,160,30);[self.window.contentView addSubview:backups];
         NSScrollView *scroll=[[NSScrollView alloc]initWithFrame:NSMakeRect(16,60,888,308)];scroll.hasVerticalScroller=YES;scroll.hasHorizontalScroller=YES;_table=[[NSTableView alloc]initWithFrame:scroll.bounds];
         for(NSArray *entry in @[@[@"file",@"File",@350],@[@"line",@"Line",@55],@[@"excerpt",@"Matching Text",@400],@[@"replacement",@"Replacement",@240]]){NSTableColumn *c=[[NSTableColumn alloc]initWithIdentifier:entry[0]];c.title=entry[1];c.width=[entry[2] doubleValue];[_table addTableColumn:c];}
@@ -120,7 +123,7 @@ NSArray *NXSearchFiles(NSArray *inputs, NSDictionary *options, BOOL (^cancelled)
 - (void)cancelSearch:(id)sender {++_generation;[_queue cancelAllOperations];_busy=NO;_find.enabled=YES;_apply.enabled=NO;_status.stringValue=@"Search canceled. No files were changed.";}
 - (void)search:(id)sender {
     [self cancelSearch:nil];_results=@[];[_table reloadData];
-    NSDictionary *options=@{@"engine":_engine.indexOfSelectedItem?@"boost":@"icu",@"query":_query.stringValue,@"replacement":_replacement.stringValue,@"include":_include.stringValue,@"exclude":_exclude.stringValue,@"regex":@(_regex.state==NSControlStateValueOn),@"matchCase":@(_case.state==NSControlStateValueOn),@"wholeWord":@(_word.state==NSControlStateValueOn),@"recursive":@(_recursive.state==NSControlStateValueOn),@"hidden":@(_hidden.state==NSControlStateValueOn)};
+    NSDictionary *options=@{@"encoding":_encoding.selectedItem.representedObject ?: @0,@"engine":_engine.indexOfSelectedItem?@"boost":@"icu",@"query":_query.stringValue,@"replacement":_replacement.stringValue,@"include":_include.stringValue,@"exclude":_exclude.stringValue,@"regex":@(_regex.state==NSControlStateValueOn),@"matchCase":@(_case.state==NSControlStateValueOn),@"wholeWord":@(_word.state==NSControlStateValueOn),@"recursive":@(_recursive.state==NSControlStateValueOn),@"hidden":@(_hidden.state==NSControlStateValueOn)};
     NSArray *inputs;
     if(_scope.indexOfSelectedItem==0){BOOL directory=NO;if(![NSFileManager.defaultManager fileExistsAtPath:_folder.stringValue isDirectory:&directory]||!directory){_status.stringValue=@"Choose an existing folder.";return;}inputs=@[_folder.stringValue];}
     else inputs=self.scopeFiles?self.scopeFiles(_scope.indexOfSelectedItem):@[];

@@ -53,7 +53,7 @@
         NSString *path=NXCanonicalPath(panel.URL.path);if([path isEqual:doc.path]){Alert(@"Choose a different path for the copy.");return;}
         NSString *sidecar=[path stringByAppendingString:@".notex"];
         if([NSFileManager.defaultManager fileExistsAtPath:sidecar]&&!NXOwnedCompanion([NSData dataWithContentsOfFile:sidecar])){Alert(@"An unrelated file occupies the formatting companion path.");return;}
-        NSData *data=[doc.editor.string dataUsingEncoding:doc.encoding allowLossyConversion:NO];if(!data){Alert(@"The text cannot be represented in the selected encoding.");return;}
+        NSData *data=NXEncodeText(doc.editor.string,doc.encoding);if(!data){Alert(@"The text cannot be represented in the selected encoding.");return;}
         NSMutableData *encoded=[NSMutableData new];if(doc.bom){if(doc.encoding==NSUTF8StringEncoding)[encoded appendBytes:"\xef\xbb\xbf" length:3];else if(doc.encoding==NSUTF16LittleEndianStringEncoding)[encoded appendBytes:"\xff\xfe" length:2];else [encoded appendBytes:"\xfe\xff" length:2];}[encoded appendData:data];
         if(!NXWrite(encoded,path,&error)||!NXWrite(NXCompanion(Text(doc.editor),State(doc.editor)),sidecar,&error))Alert(error.localizedDescription);return;
     }
