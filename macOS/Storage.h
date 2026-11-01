@@ -5,6 +5,7 @@
 
 NSError *NXError(NSString *message);
 NSData *NXDigest(NSData *data);
+NSString *NXCanonicalPath(NSString *path);
 BOOL NXWrite(NSData *data, NSString *path, NSError **error);
 NSData *NXCompanion(NSData *text, const NoteX::State &state);
 BOOL NXReadCompanion(NSData *bytes, NSData *text, NoteX::State &state);

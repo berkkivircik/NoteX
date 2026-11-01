@@ -14,6 +14,7 @@ NSError *NXError(NSString *message) {
     return [NSError errorWithDomain:@"NoteX" code:1
                            userInfo:@{NSLocalizedDescriptionKey: message}];
 }
+NSString *NXCanonicalPath(NSString *path) {return path.length?path.stringByStandardizingPath.stringByResolvingSymlinksInPath:@"";}
 NSData *NXDigest(NSData *data) {
     unsigned char digest[CC_SHA256_DIGEST_LENGTH];
     CC_SHA256_CTX context;

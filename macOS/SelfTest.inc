@@ -41,7 +41,7 @@ static void Bold24(ScintillaView *view) {
             } else if ([mode isEqual:@"ui-project"]) {
                 [tree selectRowIndexes:[NSIndexSet indexSetWithIndex:2] byExtendingSelection:NO];
                 [NSApp sendAction:tree.doubleAction to:tree.target from:tree];
-                Check([self.current.path isEqual:path] && tree.numberOfRows == 3, "project outline opens its file reference");
+                Check([self.current.path isEqual:NXCanonicalPath(path)] && tree.numberOfRows == 3, "project outline opens its file reference");
             }
             printf("READY\n"); fflush(stdout);
             if ([mode isEqual:@"ui-menu"]) [self customizeMenus:nil];

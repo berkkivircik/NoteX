@@ -71,7 +71,7 @@ NSArray *NXSearchFiles(NSArray *inputs, NSDictionary *options, BOOL (^cancelled)
     for(id input in files){@autoreleasepool{
         if(cancelled&&cancelled())return @[];
         NSDictionary *document=[input isKindOfClass:NSDictionary.class]?input:nil;NSString *path=document?document[@"path"]:input;
-        NSString *identity=document?document[@"id"]:path.stringByStandardizingPath;
+        NSString *identity=document?document[@"id"]:NXCanonicalPath(path);
         if([seen containsObject:identity])continue;[seen addObject:identity];
         if(!MatchesFilter(path.length?path:document[@"title"],options[@"include"],YES)||MatchesFilter(path,options[@"exclude"],NO)||[path.pathExtension isEqual:@"notex"])continue;
         if(!document){NSDictionary *attributes=[NSFileManager.defaultManager attributesOfItemAtPath:path error:nil];if([attributes[NSFileType] isEqual:NSFileTypeSymbolicLink]||[attributes[NSFileSize] unsignedLongLongValue]>16*1024*1024)continue;}

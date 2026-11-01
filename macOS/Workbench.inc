@@ -119,7 +119,7 @@
     if(!self.fileSearch){self.fileSearch=[NXFileSearch new];__weak NXApp *weak=self;self.fileSearch.scopeFiles=^NSArray *(NSInteger scope){return [weak searchScope:scope];};self.fileSearch.navigate=^(NSDictionary *result){[weak navigateResult:result];};self.fileSearch.replaceResults=^NSString *(NSArray *results){return [weak applySearchResults:results];};}
     [self.fileSearch showForWindow:self.window];
 }
-- (NXDocument *)documentForResult:(NSDictionary *)result {for(NXDocument *doc in self.documents)if(([result[@"id"] length]&&[doc.identifier isEqual:result[@"id"]])||([result[@"path"] length]&&[doc.path isEqual:result[@"path"]]))return doc;return nil;}
+- (NXDocument *)documentForResult:(NSDictionary *)result {for(NXDocument *doc in self.documents)if(([result[@"id"] length]&&[doc.identifier isEqual:result[@"id"]])||([result[@"path"] length]&&[NXCanonicalPath(doc.path) isEqual:NXCanonicalPath(result[@"path"])]))return doc;return nil;}
 - (void)navigateResult:(NSDictionary *)result {
     NXDocument *doc=[self documentForResult:result];NSError *error=nil;
     if(!doc){if(![result[@"path"] length]||![self openPath:result[@"path"] error:&error]){Alert(error.localizedDescription ?: @"This tab is no longer open. Run the search again.");return;}doc=self.current;}

@@ -45,13 +45,19 @@ with tempfile.TemporaryDirectory(prefix="notex-native-tests-") as directory:
     shutil.copytree(APP, replacement)
     run(replacement, "restore", work / "test-restart")
     if os.environ.get("CI"):
-        # Exercise a real upgrade from the immutable first native release.
-        old_zip = work / "previous.zip"
-        urllib.request.urlretrieve("https://github.com/berkkivircik/NoteX/releases/download/v1.3.2-macos.1/NoteX-1.3.2-macos-arm64.zip", old_zip)
-        assert hashlib.sha256(old_zip.read_bytes()).hexdigest() == "93b4170c541a96dcca15a60c06a2528b492613b0704acb386af0ecec808a9748"
-        subprocess.run(["ditto", "-x", "-k", str(old_zip), str(work / "Previous")], check=True)
-        run(work / "Previous/NoteX.app", "seed", work / "test-upgrade")
-        run(APP, "restore-legacy", work / "test-upgrade")
+        # Upgrade profiles created by both previously published native binaries.
+        releases = [
+            ("v1.3.2-macos.1", "1.3.2", "93b4170c541a96dcca15a60c06a2528b492613b0704acb386af0ecec808a9748"),
+            ("v1.3.3-macos.2", "1.3.3", "d6cc0f369c4ffb7b99a2c95604b74ac3b03f3464c8580d8a544fe4837002a963"),
+        ]
+        for tag, version, digest in releases:
+            old_zip = work / f"previous-{version}.zip"
+            urllib.request.urlretrieve(f"https://github.com/berkkivircik/NoteX/releases/download/{tag}/NoteX-{version}-macos-arm64.zip", old_zip)
+            assert hashlib.sha256(old_zip.read_bytes()).hexdigest() == digest
+            previous = work / f"Previous-{version}"
+            subprocess.run(["ditto", "-x", "-k", str(old_zip), str(previous)], check=True)
+            run(previous / "NoteX.app", "seed", work / f"test-upgrade-{version}")
+            run(APP, "restore-legacy", work / f"test-upgrade-{version}")
     # Kill only the child launched here, after the ordinary autosnapshot timer.
     log = work / "crash.log"
     with log.open("w") as output:

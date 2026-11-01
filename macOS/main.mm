@@ -367,7 +367,7 @@ static void Alert(NSString *message) {
     self.window.appearance = [NSAppearance appearanceNamed:self.dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
     for (NSDictionary *record in session[@"documents"]) {
         NXDocument *doc = [self newDocument:nil];
-        doc.identifier = record[@"id"]; doc.path = record[@"path"]; doc.title = record[@"title"];
+        doc.identifier = record[@"id"]; doc.path = NXCanonicalPath(record[@"path"]); doc.title = record[@"title"];
         doc.diskHash = record[@"diskHash"]; doc.encoding = [record[@"encoding"] unsignedIntegerValue]; doc.bom = [record[@"bom"] boolValue];
         doc.lexer = record[@"lexer"];
         doc.customLanguage=record[@"customLanguage"] ?: @"";
@@ -553,6 +553,7 @@ static void Alert(NSString *message) {
     return ok;
 }
 - (BOOL)openPath:(NSString *)path error:(NSError **)error {
+    path=NXCanonicalPath(path);
     for (NXDocument *existing in self.documents) if ([existing.path isEqual:path]) { self.secondaryFocused=NO; self.secondaryDocument.activeEditor=nil; [self.tabs selectTabViewItem:existing.tab]; [self.window makeFirstResponder:existing.primaryEditor]; return YES; }
     NSData *disk = [NSData dataWithContentsOfFile:path options:0 error:error];
     if (!disk) return NO;
@@ -596,6 +597,7 @@ static void Alert(NSString *message) {
     for (NSURL *url in panel.URLs) { NSError *error = nil; if (![self openPath:url.path error:&error]) Alert(error.localizedDescription); }
 }
 - (BOOL)saveDocument:(NXDocument *)doc path:(NSString *)path error:(NSError **)error {
+    path=NXCanonicalPath(path);
     // A recovery snapshot precedes the two-file save; failures leave the tab dirty.
     if (![self snapshot:error]) return NO;
     if ([path isEqual:doc.path]) {
