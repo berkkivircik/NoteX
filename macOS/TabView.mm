@@ -77,7 +77,8 @@
         if(item==self.selectedTabViewItem)selected=button.frame;
         x+=width+2;++i;
     }
-    self.headerHeight=MIN(y+28,MIN(112,MAX(28,self.bounds.size.height/4)))+4;
+    CGFloat rowBudget=MAX(28,floor(MAX(0,MIN(112,self.bounds.size.height/4-4))/28)*28);
+    self.headerHeight=MIN(y+28,rowBudget)+4;
     self.tabScroll.frame=NSMakeRect(0,self.isFlipped?0:self.bounds.size.height-self.headerHeight,available,self.headerHeight);
     self.tabCanvas.frame=NSMakeRect(0,0,available-14,MAX(y+28,self.headerHeight));
     _previous.frame=NSMakeRect(available,self.isFlipped?0:self.bounds.size.height-30,32,28);_next.frame=NSMakeRect(available+34,self.isFlipped?0:self.bounds.size.height-30,32,28);_all.frame=NSMakeRect(available+68,self.isFlipped?0:self.bounds.size.height-30,36,28);

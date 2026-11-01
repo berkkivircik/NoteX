@@ -56,6 +56,7 @@ static NSData *Sample();
     NSUInteger first=self.documents.count;for(NSUInteger i=0;i<100;++i){NXDocument *extra=[self newDocument:nil];extra.title=[NSString stringWithFormat:@"Document %lu",(unsigned long)i];}
     [self tick:nil];[self.window.contentView layoutSubtreeIfNeeded];NXTabView *tabs=(NXTabView *)self.tabs;[tabs refreshTabs];
     Check(tabs.tabViewType==NSNoTabsNoBorder&&tabs.headerHeight<=116&&tabs.tabCanvas.frame.size.height>tabs.tabScroll.frame.size.height,"100 documents wrap into a bounded scrolling tab strip");
+    NSSize originalSize=tabs.frame.size;[tabs setFrameSize:NSMakeSize(originalSize.width,200)];Check(tabs.headerHeight<=50,"short windows keep tabs within one quarter of available height");[tabs setFrameSize:originalSize];
     NSRect header=[tabs.tabScroll convertRect:tabs.tabScroll.bounds toView:nil],editor=[tabs.selectedTabViewItem.view convertRect:tabs.selectedTabViewItem.view.bounds toView:nil];Check(NSMinY(header)>=NSMaxY(editor)-1,"document tabs stay above the editor in AppKit flipped coordinates");
     NSView *firstButton=tabs.tabCanvas.subviews.firstObject;Check(firstButton.frame.origin.x==0,"first document tab is left aligned");
     NXDocument *last=self.documents.lastObject;[self moveTabFrom:self.documents.count-1 to:0];Check(self.documents.firstObject==last&&self.tabs.selectedTabViewItem==last.tab,"moving a tab preserves document identity and selection");
