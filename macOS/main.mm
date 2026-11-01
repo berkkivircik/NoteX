@@ -84,6 +84,7 @@ static void Alert(NSString *message) {
 @property BOOL wrap;
 @property BOOL snapshotFailed;
 @property unsigned colorField;
+@property NSMutableArray<NSString *> *pendingFiles;
 - (NXDocument *)current;
 - (NXDocument *)newDocument:(id)sender;
 - (void)configureLexer:(NXDocument *)doc;
@@ -273,6 +274,12 @@ static void Alert(NSString *message) {
     [NSApp activateIgnoringOtherApps:YES];
     [self.window makeFirstResponder:self.current.editor];
     [self tick:nil];
+    if (self.storage.recoveredPrevious) Alert(@"The latest session snapshot could not be read. NoteX restored the previous snapshot and retained the damaged file in the session folder. The most recent edits may be missing.");
+    for (NSString *path in self.pendingFiles) {
+        NSError *openError = nil;
+        if (![self openPath:path error:&openError]) Alert(openError.localizedDescription);
+    }
+    self.pendingFiles = nil;
     NSArray *arguments = NSProcessInfo.processInfo.arguments;
     NSUInteger index = [arguments indexOfObject:@"--self-test"];
     if (index != NSNotFound && index + 1 < arguments.count) {
@@ -380,7 +387,11 @@ static void Alert(NSString *message) {
 - (BOOL)windowShouldClose:(NSWindow *)window { [NSApp terminate:nil]; return NO; }
 - (void)applicationDidResignActive:(NSNotification *)notification { [self tick:nil]; }
 - (BOOL)application:(NSApplication *)application openFile:(NSString *)filename {
-    if (!self.window) return NO;
+    if (!self.window) {
+        if (!self.pendingFiles) self.pendingFiles = [NSMutableArray new];
+        [self.pendingFiles addObject:filename];
+        return YES;
+    }
     NSError *error = nil;
     BOOL ok = [self openPath:filename error:&error];
     if (!ok) Alert(error.localizedDescription);

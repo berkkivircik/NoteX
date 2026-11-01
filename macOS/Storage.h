@@ -12,6 +12,7 @@ BOOL NXOwnedCompanion(NSData *bytes);
 
 @interface NXStorage : NSObject
 @property(nonatomic, readonly) NSString *directory;
+@property(nonatomic, readonly) BOOL recoveredPrevious;
 - (instancetype)initWithDirectory:(NSString *)directory error:(NSError **)error;
 - (NSDictionary *)load:(NSError **)error;
 - (BOOL)save:(NSDictionary *)session error:(NSError **)error;

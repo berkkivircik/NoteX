@@ -102,6 +102,7 @@ static NSDictionary *DecodeSession(NSData *data) {
 @implementation NXStorage {
     int _lock;
     NSString *_directory;
+    BOOL _recoveredPrevious;
 }
 - (instancetype)initWithDirectory:(NSString *)directory error:(NSError **)error {
     self = [super init];
@@ -119,6 +120,7 @@ static NSDictionary *DecodeSession(NSData *data) {
     return self;
 }
 - (NSString *)directory { return _directory; }
+- (BOOL)recoveredPrevious { return _recoveredPrevious; }
 - (void)dealloc { if (_lock >= 0) close(_lock); }
 - (NSDictionary *)load:(NSError **)error {
     NSString *path = [_directory stringByAppendingPathComponent:@"session.plist"];
@@ -131,6 +133,7 @@ static NSDictionary *DecodeSession(NSData *data) {
     if (result) {
         if (current && !NXWrite(current, [_directory stringByAppendingPathComponent:
             [NSString stringWithFormat:@"recovery-%@.plist", NSUUID.UUID.UUIDString]], error)) return nil;
+        _recoveredPrevious = YES;
         return result;
     }
     if (error) *error = NXError(@"The session and its previous snapshot could not be read. Your files were preserved. Back up the NoteX Application Support folder before repairing it.");
