@@ -331,6 +331,7 @@ static void Alert(NSString *message) {
     [self.split setHoldingPriority:NSLayoutPriorityDefaultHigh forSubviewAtIndex:0];
     NSStackView *stack = [NSStackView stackViewWithViews:@[toolbar, self.findBar, self.split, self.status]];
     stack.orientation = NSUserInterfaceLayoutOrientationVertical;
+    stack.distribution = NSStackViewDistributionFill;
     stack.alignment = NSLayoutAttributeLeading;
     stack.spacing = 4;
     stack.translatesAutoresizingMaskIntoConstraints = NO;
@@ -338,6 +339,7 @@ static void Alert(NSString *message) {
     [NSLayoutConstraint activateConstraints:@[
         [stack.leadingAnchor constraintEqualToAnchor:content.leadingAnchor], [stack.trailingAnchor constraintEqualToAnchor:content.trailingAnchor],
         [stack.topAnchor constraintEqualToAnchor:content.topAnchor], [stack.bottomAnchor constraintEqualToAnchor:content.bottomAnchor constant:-6],
+        [self.status.bottomAnchor constraintEqualToAnchor:stack.bottomAnchor],
         [toolbar.widthAnchor constraintEqualToAnchor:stack.widthAnchor], [self.split.widthAnchor constraintEqualToAnchor:stack.widthAnchor],
         [self.split.heightAnchor constraintGreaterThanOrEqualToConstant:200]]];
     [self.split setContentHuggingPriority:1 forOrientation:NSLayoutConstraintOrientationVertical];

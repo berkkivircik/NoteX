@@ -132,6 +132,7 @@ static void CancelNextDialog(void) {
     if([mode isEqual:@"ui-toolbar"]){SetText(doc.primaryEditor,[@"First item\nSecond item\n\nFirst step\nSecond step" dataUsingEncoding:NSUTF8StringEncoding]);Send(doc.primaryEditor,SCI_SETSEL,0,Send(doc.primaryEditor,SCI_POSITIONFROMLINE,2));[self.bulletListButton performClick:nil];Send(doc.primaryEditor,SCI_SETSEL,Send(doc.primaryEditor,SCI_POSITIONFROMLINE,3),Send(doc.primaryEditor,SCI_GETLENGTH));[self.numberedListButton performClick:nil];Send(doc.primaryEditor,SCI_GOTOPOS,0);}
     if([mode isEqual:@"ui-search"]){[self findInFiles:nil];NSTextField *query=[self.fileSearch valueForKey:@"query"];query.stringValue=@"NoteX";[(NSPopUpButton *)[self.fileSearch valueForKey:@"scope"] selectItemAtIndex:1];[NSApp sendAction:NSSelectorFromString(@"search:") to:self.fileSearch from:nil];}
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW,2*NSEC_PER_SEC),dispatch_get_main_queue(),^{
+        if([mode isEqual:@"ui-sidebar-hidden"]||[mode isEqual:@"ui-toolbar"])Check(self.editorSplit.frame.size.height>self.window.contentView.bounds.size.height*0.75,"hidden-sidebar editor fills the available window height");
         if([mode isEqual:@"ui-search"])Check([[self.fileSearch valueForKey:@"results"] count]==2,"native file search displays unsaved document results");
         printf("READY\n");fflush(stdout);
         if([mode isEqual:@"ui-preferences"])[self preferencesEditor:nil];
