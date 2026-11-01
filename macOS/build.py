@@ -12,8 +12,8 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "1.3.2"
-BUILD = "1"
+VERSION = "1.3.3"
+BUILD = "2"
 
 def main():
     if sys.platform != "darwin":
@@ -32,7 +32,7 @@ def main():
     flags = ["-std=c++20", "-O2", "-DNDEBUG", "-DLEXILLA_NO_EXPORT", "-arch", "arm64",
              "-mmacosx-version-min=14.0", "-isysroot", sdk, "-Wno-deprecated-declarations"]
     for include in ["scintilla/include", "scintilla/src", "scintilla/cocoa",
-                    "lexilla/include", "lexilla/lexlib"]:
+                    "lexilla/include", "lexilla/lexlib", "boostregex"]:
         flags += ["-I", str(ROOT / include)]
     sources = sorted((ROOT / "macOS").glob("*.mm"))
     sources += sorted((ROOT / "scintilla/src").glob("*.cxx"))
@@ -58,7 +58,7 @@ def main():
         "CFBundleVersion": BUILD, "LSMinimumSystemVersion": "14.0",
         "CFBundleIconFile": "NoteX.icns",
         "NSHighResolutionCapable": True, "NSPrincipalClass": "NSApplication",
-        "NSHumanReadableCopyright": "Copyright Â© 2026 Berk Kivircik and contributors. GPLv3.",
+        "NSHumanReadableCopyright": "Copyright Ã‚Â© 2026 Berk Kivircik and contributors. GPLv3.",
         "CFBundleDocumentTypes": [{"CFBundleTypeName": "Text document", "CFBundleTypeRole": "Editor",
                                    "LSHandlerRank": "Alternate", "LSItemContentTypes": ["public.text", "public.source-code"]}],
     }
@@ -70,6 +70,7 @@ def main():
     for name in ["LICENSE", "THIRD_PARTY_NOTICES.md", "MODIFICATIONS.md"]:
         shutil.copy2(ROOT / name, resources / name)
     shutil.copytree(ROOT / "LICENSES", resources / "LICENSES")
+    shutil.copytree(ROOT / "PowerEditor/installer/functionList", resources / "functionList")
     shutil.copy2(ROOT / "scintilla/License.txt", resources / "Scintilla-LICENSE.txt")
     shutil.copy2(ROOT / "lexilla/License.txt", resources / "Lexilla-LICENSE.txt")
     shutil.copy2(ROOT / "macOS/README.md", resources / "README.md")

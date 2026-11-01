@@ -4,6 +4,9 @@
 #import <CoreText/CoreText.h>
 #import "ScintillaView.h"
 #import "Storage.h"
+#import "MenuLayout.h"
+#import "Workspace.h"
+#import "FunctionIndex.h"
 #include "ILexer.h"
 #include "Lexilla.h"
 #include "SciLexer.h"
@@ -85,6 +88,27 @@ static void Alert(NSString *message) {
 @property BOOL snapshotFailed;
 @property unsigned colorField;
 @property NSMutableArray<NSString *> *pendingFiles;
+@property NXMenuLayout *menuLayout;
+@property NXWorkspace *workspace;
+@property NSSplitView *split;
+@property BOOL sidebarVisible;
+@property NSMutableDictionary *preferences;
+@property NSMutableArray *macros;
+@property NSMutableArray *recordingActions;
+@property BOOL recording;
+@property BOOL playingMacro;
+@property NSData *paintFormat;
+- (void)buildFeatureMenus;
+- (void)applyPreferences:(NXDocument *)doc;
+- (void)recordNotification:(SCNotification *)notification;
+- (void)refreshFunctions;
+- (void)featureTests;
+- (void)playActions:(NSArray *)actions repetitions:(NSUInteger)repetitions;
+- (void)preferencesDialog:(id)sender;
+- (void)customizeMenus:(id)sender;
+- (void)resetMenus:(id)sender;
+- (void)showPanel:(id)sender;
+- (void)toggleSidebar:(id)sender;
 - (NXDocument *)current;
 - (NXDocument *)newDocument:(id)sender;
 - (void)configureLexer:(NXDocument *)doc;
@@ -128,10 +152,10 @@ static void Alert(NSString *message) {
     [app addItem:quit];
     NSMenu *file = [self menu:@"File" parent:root];
     [self item:file title:@"New Tab" action:@selector(newDocument:) key:@"n" tag:0];
-    [self item:file title:@"Open…" action:@selector(open:) key:@"o" tag:0];
+    [self item:file title:@"Openâ€¦" action:@selector(open:) key:@"o" tag:0];
     [self item:file title:@"Save" action:@selector(save:) key:@"s" tag:0];
-    [self item:file title:@"Save As…" action:@selector(saveAs:) key:@"S" tag:0];
-    [self item:file title:@"Close Tab…" action:@selector(closeTab:) key:@"w" tag:0];
+    [self item:file title:@"Save Asâ€¦" action:@selector(saveAs:) key:@"S" tag:0];
+    [self item:file title:@"Close Tabâ€¦" action:@selector(closeTab:) key:@"w" tag:0];
     [file addItem:NSMenuItem.separatorItem];
     [self item:file title:@"Show Session Folder" action:@selector(showSession:) key:@"" tag:0];
     NSMenu *edit = [self menu:@"Edit" parent:root];
@@ -142,16 +166,16 @@ static void Alert(NSString *message) {
         [edit addItem:item];
     }
     [edit addItem:NSMenuItem.separatorItem];
-    [self item:edit title:@"Find and Replace…" action:@selector(showFind:) key:@"f" tag:0];
+    [self item:edit title:@"Find and Replaceâ€¦" action:@selector(showFind:) key:@"f" tag:0];
     [self item:edit title:@"Find Next" action:@selector(findNext:) key:@"g" tag:0];
-    [self item:edit title:@"Go to Line…" action:@selector(goToLine:) key:@"l" tag:0];
+    [self item:edit title:@"Go to Lineâ€¦" action:@selector(goToLine:) key:@"l" tag:0];
     NSMenu *format = [self menu:@"Format" parent:root];
     [self item:format title:@"Bold" action:@selector(toggleFormat:) key:@"b" tag:NoteX::Bold];
     [self item:format title:@"Italic" action:@selector(toggleFormat:) key:@"i" tag:NoteX::Italic];
     [self item:format title:@"Underline" action:@selector(toggleFormat:) key:@"u" tag:NoteX::Underline];
     [self item:format title:@"Strikethrough" action:@selector(toggleFormat:) key:@"" tag:NoteX::Strike];
-    [self item:format title:@"Text Color…" action:@selector(pickColor:) key:@"" tag:NoteX::Fore];
-    [self item:format title:@"Highlight Color…" action:@selector(pickColor:) key:@"" tag:NoteX::Highlight];
+    [self item:format title:@"Text Colorâ€¦" action:@selector(pickColor:) key:@"" tag:NoteX::Fore];
+    [self item:format title:@"Highlight Colorâ€¦" action:@selector(pickColor:) key:@"" tag:NoteX::Highlight];
     [self item:format title:@"Clear Formatting" action:@selector(clearFormat:) key:@"" tag:0];
     [self item:format title:@"Bulleted List" action:@selector(makeList:) key:@"" tag:0];
     [self item:format title:@"Numbered List" action:@selector(makeList:) key:@"" tag:1];
@@ -167,6 +191,7 @@ static void Alert(NSString *message) {
     [self item:help title:@"macOS Guide and Limitations" action:@selector(guide:) key:@"" tag:0];
     [self item:help title:@"Source Code and License" action:@selector(source:) key:@"" tag:0];
     NSApp.mainMenu = root;
+    [self buildFeatureMenus];
 }
 - (void)buildWindow {
     self.window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 1120, 740)
@@ -197,7 +222,7 @@ static void Alert(NSString *message) {
         [self button:@"B" action:@selector(toggleFormat:) tag:NoteX::Bold],
         [self button:@"I" action:@selector(toggleFormat:) tag:NoteX::Italic],
         [self button:@"U" action:@selector(toggleFormat:) tag:NoteX::Underline],
-        [self button:@"S̶" action:@selector(toggleFormat:) tag:NoteX::Strike],
+        [self button:@"SÌ¶" action:@selector(toggleFormat:) tag:NoteX::Strike],
         [self button:@"Color" action:@selector(pickColor:) tag:NoteX::Fore],
         [self button:@"Highlight" action:@selector(pickColor:) tag:NoteX::Highlight], self.language]];
     toolbar.spacing = 6;
@@ -218,7 +243,14 @@ static void Alert(NSString *message) {
     self.tabs = [[NSTabView alloc] initWithFrame:NSZeroRect];
     self.tabs.delegate = self;
     self.status = [NSTextField labelWithString:@"UTF-8"];
-    NSStackView *stack = [NSStackView stackViewWithViews:@[toolbar, self.findBar, self.tabs, self.status]];
+    self.split = [[NSSplitView alloc] initWithFrame:NSMakeRect(0, 0, 1120, 600)];
+    self.split.vertical = YES; self.split.dividerStyle = NSSplitViewDividerStyleThin;
+    self.workspace.view.frame = NSMakeRect(0, 0, 285, 600);
+    self.tabs.frame = NSMakeRect(286, 0, 834, 600);
+    self.tabs.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    [self.split addSubview:self.workspace.view]; [self.split addSubview:self.tabs];
+    [self.split setHoldingPriority:NSLayoutPriorityDefaultHigh forSubviewAtIndex:0];
+    NSStackView *stack = [NSStackView stackViewWithViews:@[toolbar, self.findBar, self.split, self.status]];
     stack.orientation = NSUserInterfaceLayoutOrientationVertical;
     stack.alignment = NSLayoutAttributeLeading;
     stack.spacing = 4;
@@ -227,9 +259,9 @@ static void Alert(NSString *message) {
     [NSLayoutConstraint activateConstraints:@[
         [stack.leadingAnchor constraintEqualToAnchor:content.leadingAnchor], [stack.trailingAnchor constraintEqualToAnchor:content.trailingAnchor],
         [stack.topAnchor constraintEqualToAnchor:content.topAnchor], [stack.bottomAnchor constraintEqualToAnchor:content.bottomAnchor constant:-6],
-        [toolbar.widthAnchor constraintEqualToAnchor:stack.widthAnchor], [self.tabs.widthAnchor constraintEqualToAnchor:stack.widthAnchor],
-        [self.tabs.heightAnchor constraintGreaterThanOrEqualToConstant:200]]];
-    [self.tabs setContentHuggingPriority:1 forOrientation:NSLayoutConstraintOrientationVertical];
+        [toolbar.widthAnchor constraintEqualToAnchor:stack.widthAnchor], [self.split.widthAnchor constraintEqualToAnchor:stack.widthAnchor],
+        [self.split.heightAnchor constraintGreaterThanOrEqualToConstant:200]]];
+    [self.split setContentHuggingPriority:1 forOrientation:NSLayoutConstraintOrientationVertical];
 }
 - (void)applicationDidFinishLaunching:(NSNotification *)notification {
     for (NSString *font in @[@"JetBrainsMono.ttf", @"Inter.ttf"]) {
@@ -246,7 +278,23 @@ static void Alert(NSString *message) {
     if (error) { Alert(error.localizedDescription); exit(1); }
     if (session[@"dark"]) self.dark = [session[@"dark"] boolValue];
     if (session[@"wrap"]) self.wrap = [session[@"wrap"] boolValue];
-    [self buildMenus]; [self buildWindow];
+    self.preferences = [@{@"font":@"JetBrains Mono", @"fontSize":@13, @"tabWidth":@4, @"useTabs":@NO, @"lineNumbers":@YES,
+        @"whitespace":@NO, @"autoIndent":@YES, @"braceMatch":@YES, @"autoComplete":@NO} mutableCopy];
+    if ([session[@"preferences"] isKindOfClass:NSDictionary.class]) [self.preferences addEntriesFromDictionary:session[@"preferences"]];
+    self.macros = [session[@"macros"] isKindOfClass:NSArray.class] ? [session[@"macros"] mutableCopy] : [NSMutableArray new];
+    self.recordingActions = [NSMutableArray new];
+    self.sidebarVisible = session[@"sidebarVisible"] ? [session[@"sidebarVisible"] boolValue] : YES;
+    self.workspace = [[NXWorkspace alloc] initWithState:[session[@"workspace"] isKindOfClass:NSDictionary.class] ? session[@"workspace"] : @{}];
+    __weak NXApp *weakSelf = self;
+    self.workspace.openFile = ^(NSString *path) { NSError *openError = nil; if (![weakSelf openPath:path error:&openError]) Alert(openError.localizedDescription); };
+    self.workspace.goToPosition = ^(NSInteger position) { NXApp *owner = weakSelf; Send(owner.current.editor, SCI_GOTOPOS, position); [owner.window makeFirstResponder:owner.current.editor]; };
+    self.workspace.changed = ^{ if (!weakSelf.restoring) [weakSelf tick:nil]; };
+    self.workspace.refreshRequested = ^{ [weakSelf refreshFunctions]; };
+    [self buildMenus];
+    self.menuLayout = [[NXMenuLayout alloc] initWithMenu:NSApp.mainMenu settings:session[@"menuLayout"]];
+    self.menuLayout.commit = ^BOOL(NSError **saveError) { return [weakSelf snapshot:saveError]; };
+    [self.menuLayout apply];
+    [self buildWindow];
     self.window.appearance = [NSAppearance appearanceNamed:self.dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
     for (NSDictionary *record in session[@"documents"]) {
         NXDocument *doc = [self newDocument:nil];
@@ -269,6 +317,8 @@ static void Alert(NSString *message) {
     NSInteger selected = [session[@"selected"] integerValue];
     if (selected >= 0 && selected < (NSInteger)self.documents.count) [self.tabs selectTabViewItemAtIndex:selected];
     self.restoring = NO;
+    self.workspace.view.hidden = !self.sidebarVisible;
+    [self.split setPosition:self.sidebarVisible ? 285 : 0 ofDividerAtIndex:0];
     self.timer = [NSTimer scheduledTimerWithTimeInterval:1 target:self selector:@selector(tick:) userInfo:nil repeats:YES];
     [self.window makeKeyAndOrderFront:nil];
     [NSApp activateIgnoringOtherApps:YES];
@@ -301,6 +351,7 @@ static void Alert(NSString *message) {
     Send(doc.editor, SCI_SETWRAPMODE, self.wrap ? SC_WRAP_WORD : SC_WRAP_NONE);
     Send(doc.editor, SCI_STYLESETFONT, STYLE_DEFAULT, reinterpret_cast<sptr_t>("JetBrains Mono"));
     Send(doc.editor, SCI_STYLESETSIZEFRACTIONAL, STYLE_DEFAULT, 1300);
+    [self applyPreferences:doc];
     [self theme:doc];
     doc.editor.delegate = self;
     doc.tab = [[NSTabViewItem alloc] initWithIdentifier:doc.identifier];
@@ -338,7 +389,9 @@ static void Alert(NSString *message) {
     Send(doc.editor, SCI_COLOURISE, 0, -1);
 }
 - (void)notification:(SCNotification *)notification {
-    if (!self.restoring && notification->nmhdr.code == SCN_UPDATEUI) [self updateControls];
+    if (self.restoring) return;
+    if (notification->nmhdr.code == SCN_UPDATEUI) [self updateControls];
+    [self recordNotification:notification];
 }
 - (void)updateControls {
     NXDocument *doc = self.current;
@@ -348,10 +401,10 @@ static void Alert(NSString *message) {
     NoteX::SelectionFormat query;
     query.start = Send(doc.editor, SCI_GETSELECTIONSTART); query.end = Send(doc.editor, SCI_GETSELECTIONEND);
     Send(doc.editor, NoteX::GetFormat, 0, reinterpret_cast<sptr_t>(&query));
-    self.family.stringValue = (query.value.mask & NoteX::Family) ? @(query.value.family.c_str()) : @"JetBrains Mono";
-    self.size.stringValue = [NSString stringWithFormat:@"%g", (query.value.mask & NoteX::Size) ? query.value.size / 100.0 : 13.0];
+    self.family.stringValue = (query.value.mask & NoteX::Family) ? @(query.value.family.c_str()) : self.preferences[@"font"];
+    self.size.stringValue = [NSString stringWithFormat:@"%g", (query.value.mask & NoteX::Size) ? query.value.size / 100.0 : [self.preferences[@"fontSize"] doubleValue]];
     [self.language selectItemWithTitle:[doc.lexer isEqual:@"null"] ? @"Plain Text" : doc.lexer];
-    self.window.title = [NSString stringWithFormat:@"%@%@ — NoteX", doc.title, doc.dirty ? @" •" : @""];
+    self.window.title = [NSString stringWithFormat:@"%@%@ â€” NoteX", doc.title, doc.dirty ? @" â€¢" : @""];
     if (!self.snapshotFailed) self.status.stringValue = [NSString stringWithFormat:@"  Line %ld   Column %ld   %@   %lu characters",
         (long)Send(doc.editor, SCI_LINEFROMPOSITION, Send(doc.editor, SCI_GETCURRENTPOS)) + 1,
         (long)Send(doc.editor, SCI_GETCOLUMN, Send(doc.editor, SCI_GETCURRENTPOS)) + 1,
@@ -359,6 +412,7 @@ static void Alert(NSString *message) {
 }
 - (void)tabView:(NSTabView *)tabView didSelectTabViewItem:(NSTabViewItem *)tabViewItem {
     [self updateControls];
+    [self refreshFunctions];
     [self.window makeFirstResponder:self.current.editor];
 }
 - (BOOL)snapshot:(NSError **)error {
@@ -366,7 +420,9 @@ static void Alert(NSString *message) {
     NSMutableArray *documents = [NSMutableArray new];
     for (NXDocument *doc in self.documents) [documents addObject:doc.record];
     NSDictionary *session = @{@"schema":@1, @"documents":documents,
-        @"selected":@([self.tabs indexOfTabViewItem:self.tabs.selectedTabViewItem]), @"dark":@(self.dark), @"wrap":@(self.wrap)};
+        @"selected":@([self.tabs indexOfTabViewItem:self.tabs.selectedTabViewItem]), @"dark":@(self.dark), @"wrap":@(self.wrap),
+        @"workspace":self.workspace.record ?: @{}, @"menuLayout":self.menuLayout.settings ?: @{},
+        @"preferences":[self.preferences copy] ?: @{}, @"macros":[self.macros copy] ?: @[], @"sidebarVisible":@(self.sidebarVisible)};
     if ([session isEqual:self.lastSnapshot]) return YES;
     if (![self.storage save:session error:error]) return NO;
     self.lastSnapshot = session;
@@ -376,8 +432,9 @@ static void Alert(NSString *message) {
     NSError *error = nil;
     self.snapshotFailed = ![self snapshot:&error];
     if (self.snapshotFailed) self.status.stringValue = [@"Recovery snapshot failed: " stringByAppendingString:error.localizedDescription];
-    for (NXDocument *doc in self.documents) doc.tab.label = [doc.title stringByAppendingString:doc.dirty ? @" •" : @""];
+    for (NXDocument *doc in self.documents) doc.tab.label = [doc.title stringByAppendingString:doc.dirty ? @" â€¢" : @""];
     [self updateControls];
+    [self refreshFunctions];
 }
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)app {
     NSError *error = nil;
@@ -549,7 +606,7 @@ static void Alert(NSString *message) {
     auto last = Send(view, SCI_LINEFROMPOSITION, Send(view, SCI_GETSELECTIONEND));
     Send(view, SCI_BEGINUNDOACTION);
     for (auto line = last; line >= first; --line) {
-        NSString *prefix = [sender tag] ? [NSString stringWithFormat:@"%ld. ", (long)(line - first + 1)] : @"• ";
+        NSString *prefix = [sender tag] ? [NSString stringWithFormat:@"%ld. ", (long)(line - first + 1)] : @"â€¢ ";
         Send(view, SCI_INSERTTEXT, Send(view, SCI_POSITIONFROMLINE, line), reinterpret_cast<sptr_t>(prefix.UTF8String));
     }
     Send(view, SCI_ENDUNDOACTION); [self tick:nil];
@@ -586,14 +643,16 @@ static void Alert(NSString *message) {
 }
 - (void)about:(id)sender {
     [NSApp orderFrontStandardAboutPanelWithOptions:@{NSAboutPanelOptionApplicationName:@"NoteX",
-        NSAboutPanelOptionApplicationVersion:@"1.3.2 — Native macOS Preview 1",
-        NSAboutPanelOptionCredits:[[NSAttributedString alloc] initWithString:@"Native AppKit • Scintilla • Lexilla\nCopyright © 2026 Berk Kivircik and contributors.\nGNU General Public License version 3.\nSee Help for source, licensing, and preview limitations."]}];
+        NSAboutPanelOptionApplicationVersion:@"1.3.2 â€” Native macOS Preview 1",
+        NSAboutPanelOptionCredits:[[NSAttributedString alloc] initWithString:@"Native AppKit â€¢ Scintilla â€¢ Lexilla\nCopyright Â© 2026 Berk Kivircik and contributors.\nGNU General Public License version 3.\nSee Help for source, licensing, and preview limitations."]}];
 }
 - (void)showSession:(id)sender { [NSWorkspace.sharedWorkspace openURL:[NSURL fileURLWithPath:self.storage.directory]]; }
 - (void)guide:(id)sender { [NSWorkspace.sharedWorkspace openURL:[NSBundle.mainBundle URLForResource:@"README" withExtension:@"md"]]; }
 - (void)source:(id)sender { [NSWorkspace.sharedWorkspace openURL:[NSURL URLWithString:@"https://github.com/berkkivircik/NoteX"]]; }
 @end
 
+#include "Features.inc"
+#include "FeatureTests.inc"
 #include "SelfTest.inc"
 
 int main(int argc, const char *argv[]) {
