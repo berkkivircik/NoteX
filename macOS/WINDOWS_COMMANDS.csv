@@ -1,5 +1,5 @@
 windows_command,windows_label,disposition,native_implementation,verification_boundary
-IDM_FILE_NEW,＋,Native implementation,main.mm / DocumentCommands.inc / SessionCommands.inc / ExtraCommands.inc / Features.inc,Source mapping; see the behavior-level test matrix in FEATURE_PARITY.md.
+IDM_FILE_NEW,New,Native implementation,main.mm / DocumentCommands.inc / SessionCommands.inc / ExtraCommands.inc / Features.inc,Source mapping; see the behavior-level test matrix in FEATURE_PARITY.md.
 IDM_FILE_OPEN,Open...,Native implementation,main.mm / DocumentCommands.inc / SessionCommands.inc / ExtraCommands.inc / Features.inc,Source mapping; see the behavior-level test matrix in FEATURE_PARITY.md.
 IDM_FILE_OPEN_FOLDER,Explorer,Native substitute,"Terminal, Finder, or Trash via AppKit / NSWorkspace",Source mapping; see the behavior-level test matrix in FEATURE_PARITY.md.
 IDM_FILE_OPEN_CMD,cmd,Native substitute,"Terminal, Finder, or Trash via AppKit / NSWorkspace",Source mapping; see the behavior-level test matrix in FEATURE_PARITY.md.
@@ -13,7 +13,7 @@ IDM_FILE_SAVEAS,Save As...,Native implementation,main.mm / DocumentCommands.inc 
 IDM_FILE_SAVECOPYAS,Save a Copy As...,Native implementation,main.mm / DocumentCommands.inc / SessionCommands.inc / ExtraCommands.inc / Features.inc,Source mapping; see the behavior-level test matrix in FEATURE_PARITY.md.
 IDM_FILE_SAVEALL,Save All,Native implementation,main.mm / DocumentCommands.inc / SessionCommands.inc / ExtraCommands.inc / Features.inc,Source mapping; see the behavior-level test matrix in FEATURE_PARITY.md.
 IDM_FILE_RENAME,Rename...,Native implementation,main.mm / DocumentCommands.inc / SessionCommands.inc / ExtraCommands.inc / Features.inc,Source mapping; see the behavior-level test matrix in FEATURE_PARITY.md.
-IDM_FILE_CLOSE,✕,Native implementation,main.mm / DocumentCommands.inc / SessionCommands.inc / ExtraCommands.inc / Features.inc,Source mapping; see the behavior-level test matrix in FEATURE_PARITY.md.
+IDM_FILE_CLOSE,Close,Native implementation,main.mm / DocumentCommands.inc / SessionCommands.inc / ExtraCommands.inc / Features.inc,Source mapping; see the behavior-level test matrix in FEATURE_PARITY.md.
 IDM_FILE_CLOSEALL,Close All,Native implementation,main.mm / DocumentCommands.inc / SessionCommands.inc / ExtraCommands.inc / Features.inc,Source mapping; see the behavior-level test matrix in FEATURE_PARITY.md.
 IDM_FILE_CLOSEALL_BUT_CURRENT,Close All but Active Document,Native implementation,main.mm / DocumentCommands.inc / SessionCommands.inc / ExtraCommands.inc / Features.inc,Source mapping; see the behavior-level test matrix in FEATURE_PARITY.md.
 IDM_FILE_CLOSEALL_BUT_PINNED,Close All but Pinned Documents,Native implementation,main.mm / DocumentCommands.inc / SessionCommands.inc / ExtraCommands.inc / Features.inc,Source mapping; see the behavior-level test matrix in FEATURE_PARITY.md.
@@ -470,8 +470,8 @@ IDM_WINDOW_MRU_FIRST,Recent Window,Native implementation,NavigationCommands.inc 
 IDM_CMDLINEARGUMENTS,Command Line Arguments...,Native substitute,"macOS/README.md: app bundle, native profile and open-file behavior; Windows command-line switches do not apply",Source mapping; see the behavior-level test matrix in FEATURE_PARITY.md.
 IDM_HOMESWEETHOME,NoteX Home,Native implementation,main.mm Help menu / UtilityCommands.inc debugInformation:,Source mapping; see the behavior-level test matrix in FEATURE_PARITY.md.
 IDM_PROJECTPAGE,NoteX Source Code,Native implementation,main.mm Help menu / UtilityCommands.inc debugInformation:,Source mapping; see the behavior-level test matrix in FEATURE_PARITY.md.
-IDM_ONLINEDOCUMENT,Notepad++ Online User Manual,Native implementation,main.mm Help menu / UtilityCommands.inc debugInformation:,Source mapping; see the behavior-level test matrix in FEATURE_PARITY.md.
-IDM_FORUM,Notepad++ Community (Forum),Native implementation,main.mm Help menu / UtilityCommands.inc debugInformation:,Source mapping; see the behavior-level test matrix in FEATURE_PARITY.md.
+IDM_ONLINEDOCUMENT,Notepad++ Online User Manual,Native substitute,Help > macOS Guide and Limitations; upstream Windows support links are not native features,Source mapping; see the behavior-level test matrix in FEATURE_PARITY.md.
+IDM_FORUM,Notepad++ Community (Forum),Native substitute,Help > macOS Guide and Limitations; upstream Windows support links are not native features,Source mapping; see the behavior-level test matrix in FEATURE_PARITY.md.
 IDM_UPDATE_NPP,Update Notepad++,Intentionally disabled,Upstream updater remains disabled in NoteX,Source mapping; see the behavior-level test matrix in FEATURE_PARITY.md.
 IDM_CONFUPDATERPROXY,Set Updater Proxy...,Intentionally disabled,Upstream updater remains disabled in NoteX,Source mapping; see the behavior-level test matrix in FEATURE_PARITY.md.
 IDM_DEBUGINFO,Debug Info...,Native implementation,main.mm Help menu / UtilityCommands.inc debugInformation:,Source mapping; see the behavior-level test matrix in FEATURE_PARITY.md.

@@ -950,7 +950,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
 }
 - (void)about:(id)sender {
     [NSApp orderFrontStandardAboutPanelWithOptions:@{NSAboutPanelOptionApplicationName:@"NoteX",
-        NSAboutPanelOptionApplicationVersion:@"1.4.1 — Native macOS Preview 4",
+        NSAboutPanelOptionApplicationVersion:[NSString stringWithFormat:@"%@ — Native macOS Preview %@",[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"],[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleVersion"]],
         NSAboutPanelOptionCredits:[[NSAttributedString alloc] initWithString:@"Native AppKit • Scintilla • Lexilla\nCopyright © 2026 Berk Kivircik and contributors.\nGNU General Public License version 3.\nSee Help for source, licensing, and preview limitations."]}];
 }
 - (void)runToolCommand:(id)sender {
