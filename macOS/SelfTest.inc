@@ -10,7 +10,10 @@ static NSData *Sample() { return [@"NoteX — café, Türkçe, 日本語, 📝\n
 static void Bold24(ScintillaView *view) {
     NoteX::Change change; change.end = Send(view, SCI_GETLENGTH); change.fields = NoteX::Bold | NoteX::Size;
     change.value.mask = change.fields; change.value.bold = true; change.value.size = 2400;
-    Check(Send(view, NoteX::ApplyFormat, 0, reinterpret_cast<sptr_t>(&change)), "apply shared 24-point bold format");
+    Send(view, NoteX::ApplyFormat, 0, reinterpret_cast<sptr_t>(&change));
+    NoteX::SelectionFormat query; query.end = change.end;
+    Send(view, NoteX::GetFormat, 0, reinterpret_cast<sptr_t>(&query));
+    Check(query.value.bold && query.value.size == 2400 && !(query.mixed & change.fields), "apply shared 24-point bold format");
 }
 @implementation NXApp (Tests)
 - (void)selfTest:(NSString *)mode {
