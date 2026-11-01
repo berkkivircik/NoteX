@@ -2,15 +2,16 @@
 
 The native macOS edition uses AppKit, Cocoa Scintilla, the shared NoteX formatting
 engine, and Lexilla. It does not use Wine, Rosetta, Electron, or a web view.
-Preview 4 improves sidebar toggling, adds compact line-number gutters and list
-buttons to the toolbar, and retains split/clone views, find and replace in files, a preferences editor,
-a shortcut editor, and user-defined language and theme editors. The Windows and
-macOS editions share the editing and formatting engine and use native interfaces.
+Version 1.5.0 adds automatic lists, left-aligned wrapping tabs, a compact preferences
+window, and native equivalents for the Windows edition's editing and workbench
+commands. See FEATURE_PARITY.md and WINDOWS_COMMANDS.csv for the comparison,
+platform substitutions, and verification boundaries.
 
 ## Install
 
-Requires an Apple Silicon Mac and macOS 14 or later. Extract the release ZIP,
-move NoteX.app to Applications, and open it. The application is ad-hoc signed,
+Requires an Apple Silicon Mac and macOS 14 or later. Open the release DMG and
+drag NoteX.app to Applications, or extract the ZIP and move NoteX.app there.
+The DMG and ZIP contain the same application. The application is ad-hoc signed,
 not Apple Developer ID signed or notarized. If macOS blocks it, review the
 download source and use System Settings > Privacy & Security > Open Anyway.
 Do not disable Gatekeeper globally.
@@ -18,7 +19,7 @@ Do not disable Gatekeeper globally.
 ## Documents and updates
 
 Session snapshots, including unsaved text, formatting, cursor positions, bookmarks,
-project trees, menu layouts, preferences, and saved editing macros,
+project trees, menu layouts, and preferences,
 are stored in `~/Library/Application Support/NoteX`, outside the application.
 Quit NoteX normally before replacing NoteX.app. Keep the Application Support
 folder. Replacing the application does not replace your session.
@@ -88,8 +89,9 @@ the visible positions of the two panes. The split arrangement survives a restart
 Choose Edit > Find in Files. Search a folder, all open documents (including unsaved
 tabs), or files referenced by the three project panels. File filters and exclusions
 accept semicolon-separated wildcards. Subfolders and hidden files are optional.
-Literal, case-sensitive, whole-word, and ICU regular-expression searches are
-available. Regex replacements use `$1`, `$2`, and other capture-group references.
+Literal, case-sensitive, whole-word, Boost.Regex, and ICU regular-expression searches
+are available. Document search defaults to Boost.Regex. The engine selector keeps
+previous macOS ICU expressions available. Regex replacements use `$1`, `$2`, and other capture-group references.
 
 Find / Preview searches without changing files. Results include the file, line,
 matching text, and proposed replacement. Double-click a result to navigate to it.
@@ -162,9 +164,6 @@ Line-number margins adjust to the number of digits and the editor font instead
 of reserving a fixed-width blank area. Bookmark and folding controls remain available.
 
 ## Other features
-
-- Macro records editing commands, replays the last recording, and saves named macros.
-  Saved macros can be repeated or deleted. Playback is one undo action.
 - NoteX > Preferences controls the default font, size, tab width, tabs/spaces,
   line numbers, whitespace, automatic indentation, brace matching, and word completion.
 - Bookmarks supports toggle, next, previous, and clear. The editor margins also support
@@ -180,8 +179,78 @@ of reserving a fixed-width blank area. Bookmark and folding controls remain avai
 Windows DLL plugins cannot run in the native application. Native settings exports
 use JSON; Windows session, shortcut, menu, macro, UDL, and theme configuration files
 are not automatically imported. Notepad++ project workspace XML and NoteX formatting
-companions are supported as described above. Find in Files uses ICU regex syntax;
-Windows uses Boost.Regex, so platform-specific expressions may need adjustment.
-Native editing macros do not record every application command. The interface is US English.
-Files use UTF-8 or BOM-marked UTF-16; unsupported encodings are rejected rather
-than silently converted. The Windows release remains available separately.
+companions are supported as described above. Both Boost.Regex and ICU are selectable; expressions must match the selected engine.
+Macro parity and Windows settings/data migration are outside this release. Existing
+native macro records remain readable for backward compatibility. The interface is US English.
+Files use UTF-8, BOM-marked UTF-16, or an explicitly selected legacy encoding.
+Undefined bytes and unrepresentable characters are rejected rather than silently converted. The Windows release remains available separately.
+
+
+## Lists and many open documents
+
+Return continues typed or toolbar-created `• `, `- `, `* `, and numbered `1. ` lists.
+An empty list item exits the list and retains its indentation. Splitting an item
+preserves the text after the caret. Return and the new marker undo together.
+Continuation supports LF, CRLF, CR, and independent multiple carets. Pasting or
+restoring text does not trigger continuation. List buttons toggle the current list
+style or convert between bullets and numbers without duplicating markers.
+
+Tabs start at the left, wrap into at most four visible rows, and scroll vertically
+when more rows are needed. Previous/next buttons and Control-Tab cycle through
+primary-view documents. The searchable Open Documents picker includes both views.
+Drag to reorder tabs; the context menu provides pinning, colors, and group closing.
+Move to Other View removes the document from the primary strip without copying its
+text. Move it back or close the second view to return it to the primary strip.
+
+## Editing and navigation
+
+The Edit menu includes case conversion, line transforms, numeric and locale sorts,
+comment/uncomment, rectangular and multiple selections, text and number column
+editors, date/time insertion, RTF and HTML paste, binary clipboard content, redaction,
+and clipboard history. Numeric sorts retain arbitrary precision. Numeric column
+sequences support signed 64-bit values, increments, repeats, leading zeroes, and
+binary/octal/decimal/hexadecimal output; overflow cancels the complete edit.
+
+Search Options controls case, whole words, regular expressions, captured selection
+scope, and incremental search. Find All retains that scope in the results window.
+Search results and style marks support next/previous navigation. Clear Change and
+Undo History discards undo records while preserving the text and unsaved status. Bookmarks support
+copy, cut, replacement, deletion, and inversion. View includes a clickable document
+map, change navigation, individual fold levels, RTL/LTR text, display modes, and
+independent horizontal/vertical scroll synchronization.
+
+Preferences groups Editing, Appearance, and Files & Recovery in a single compact
+form. Optional automatic bracket/quote pairs wrap a single selection; multiple
+selections retain normal typing. Function completion and parameter hints use the
+bundled API definitions. Language includes 95 shared built-in language definitions;
+this is separate from Function List parser coverage. Advanced rules in Language
+Editor use the shared UDL lexer for prefix keyword groups, operators, numeric
+formats, delimiters, nesting, and folding. Syntax Style Editor edits the selected
+lexer's individual colors, font, size, and traits. Apply commits drafts; Cancel does
+not change active settings. Settings import/export uses the native JSON format.
+
+## Native sessions, independent windows, and tools
+
+Save Session exports an explicitly chosen native session containing open document
+text, including unsaved text. Treat these exports as private documents. Load Session
+adds documents without discarding current tabs; duplicate file identities become
+recovered untitled documents. This is a native session feature, not a Windows data
+migration tool.
+
+New Independent Window and Open in New Instance use a separate recoverable profile
+under the current profile's `Instances` directory. The original document remains
+open. Reopen Independent Window restores one of those profiles after it closes;
+concurrent writers to the same profile are blocked. Keep the entire Application
+Support directory when updating.
+
+Run Command executes an explicitly entered or selected command only after Run is
+pressed. It uses zsh with quoted `$NOTEX_FILE`, `$NOTEX_DIRECTORY`, `$NOTEX_SELECTION`,
+and `$NOTEX_LINE` environment variables. Document values are passed as data, not
+substituted into shell source. Output is limited to 1 MB; Stop sends termination to
+the process group. Commands requiring interactive terminal input should be opened
+in Terminal instead. Saved commands remain local. Hash tools support text,
+selection, and file input for MD5, SHA-1, SHA-256, and SHA-512.
+
+Finder, Terminal, Trash, the native Character Viewer, printing, and installed
+macOS browsers provide the platform integrations. Monitoring is an explicit,
+read-only tail mode for a saved document and stops when preserving edits requires it.

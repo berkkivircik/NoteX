@@ -1,6 +1,6 @@
 # NoteX modification notice
 
-Modified distributions: NoteX 1.3.1 for Windows and 1.4.1 macOS Preview 4.
+Modified distributions: NoteX 1.3.1 for Windows and 1.5.0 macOS Preview 5.
 Modifier: Berk Kivircik. Latest modification date: November 1, 2026.
 NoteX modifications: Copyright (C) 2026 Berk Kivircik.
 The modified work as a whole is distributed under GNU GPL version 3.
@@ -127,3 +127,14 @@ unchanged and continues to identify its exact published source and artifacts.
 The 1.3.1 naming migration also changes Parameters.cpp and the progress-window
 class identifier in FindReplaceDlg.cpp. Previous formatting wire versions and
 clipboard payloads remain readable; new output uses NoteX names and signatures.
+
+## Native command and usability expansion - November 1, 2026
+
+Berk Kivircik modified macOS/main.mm and the native editor, configuration, storage,
+workspace, menu, test, and build modules. New native command modules implement list
+continuation, wrapping tabs, compact preferences, editing/search/navigation tools,
+legacy encoding maps, shared language/API data, syntax styles, UDL rules, separate
+instances, and native application integrations. The macOS workflow packages and
+checks matching DMG and ZIP applications. See macOS/FEATURE_PARITY.md for scope and
+macOS/WINDOWS_COMMANDS.csv for the reviewed Windows command inventory. Original
+shared-engine and language-data copyrights and license notices are retained.

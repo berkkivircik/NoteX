@@ -43,7 +43,7 @@
     [self tick:nil];
 }
 - (void)changeHistory:(id)sender {
-    ScintillaView *view=self.current.editor;NSInteger action=[sender tag];if(!action){Send(view,SCI_SETCHANGEHISTORY,0);Send(view,SCI_SETCHANGEHISTORY,SC_CHANGE_HISTORY_ENABLED|SC_CHANGE_HISTORY_MARKERS);return;}
+    ScintillaView *view=self.current.editor;NSInteger action=[sender tag];if(!action){BOOL dirty=self.current.dirty;Send(view,SCI_EMPTYUNDOBUFFER);self.current.restoredDirty=dirty;Send(view,SCI_SETCHANGEHISTORY,0);Send(view,SCI_SETCHANGEHISTORY,SC_CHANGE_HISTORY_ENABLED|SC_CHANGE_HISTORY_MARKERS);return;}
     auto line=Send(view,SCI_LINEFROMPOSITION,Send(view,SCI_GETCURRENTPOS));unsigned mask=0;for(int marker=SC_MARKNUM_HISTORY_REVERTED_TO_ORIGIN;marker<=SC_MARKNUM_HISTORY_REVERTED_TO_MODIFIED;++marker)mask|=1u<<marker;
     auto found=Send(view,action>0?SCI_MARKERNEXT:SCI_MARKERPREVIOUS,action>0?line+1:line-1,mask);if(found<0)found=Send(view,action>0?SCI_MARKERNEXT:SCI_MARKERPREVIOUS,action>0?0:Send(view,SCI_GETLINECOUNT)-1,mask);if(found>=0)Send(view,SCI_GOTOLINE,found);else NSBeep();
 }
@@ -61,7 +61,7 @@
     NSMenu *multi=[self menu:@"Multiple Selections" parent:edit];NSArray *options=@[@"Ignore Case",@"Match Case",@"Whole Word",@"Match Case and Whole Word"];for(int i=0;i<8;++i)[self item:multi title:[NSString stringWithFormat:@"%@ — %@",i<4?@"Next":@"All",options[i%4]] action:@selector(extendedSelection:) key:@"" tag:10+i];
     NSArray *selected=@[@"Select and Find Next",@"Select and Find Previous",@"Volatile Find Next",@"Volatile Find Previous"];for(NSUInteger i=0;i<selected.count;++i)[self item:edit title:selected[i] action:@selector(selectedSearch:) key:@"" tag:i];
     NSMenu *styles=[self menu:@"Styled Text" parent:edit];for(NSInteger i=0;i<6;++i){NSMenu *style=[self menu:i==5?@"Find Mark Style":[NSString stringWithFormat:@"Style %ld",(long)i+1] parent:styles];NSArray *actions=@[@"Mark Selection",@"Clear Style",@"Next",@"Previous",@"Copy Styled Text"];for(NSInteger j=0;j<5;++j)[self item:style title:actions[j] action:@selector(markCommand:) key:@"" tag:j*10+i];}
-    [self item:edit title:@"Next Change" action:@selector(changeHistory:) key:@"" tag:1];[self item:edit title:@"Previous Change" action:@selector(changeHistory:) key:@"" tag:-1];[self item:edit title:@"Clear Change History" action:@selector(changeHistory:) key:@"" tag:0];
+    [self item:edit title:@"Next Change" action:@selector(changeHistory:) key:@"" tag:1];[self item:edit title:@"Previous Change" action:@selector(changeHistory:) key:@"" tag:-1];[self item:edit title:@"Clear Change and Undo History" action:@selector(changeHistory:) key:@"" tag:0];
     NSArray *displays=@[@[@"Always on Top",@0],@[@"Distraction-Free Mode",@1],@[@"Post-It Mode",@2],@[@"Show Whitespace",@10],@[@"Show Line Endings",@11],@[@"Show Indent Guides",@12],@[@"Show Line Numbers",@13],@[@"Highlight Current Line",@14],@[@"Show Wrap Symbols",@15],@[@"Show All Characters",@16],@[@"Show Non-Printing Characters",@17],@[@"Show Control Characters and Unicode Line Endings",@18],@[@"Hide Selected Lines",@20],@[@"Show Hidden Lines",@21],@[@"Fold Current Level",@22],@[@"Unfold Current Level",@23],@[@"Focus Other View",@30],@[@"Synchronize Zoom",@31]];
     for(NSArray *item in displays)[self item:view title:item[0] action:@selector(displayCommand:) key:@"" tag:[item[1] integerValue]];
     NSMenu *tabs=[self menu:@"Go to Tab" parent:view];for(int i=1;i<=9;++i)[self item:tabs title:[NSString stringWithFormat:@"Tab %d",i] action:@selector(directTab:) key:[NSString stringWithFormat:@"%d",i] tag:i];

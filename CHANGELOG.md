@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.5.0 macOS Preview 5 - 2026-11-01
+
+- Continue and exit typed or toolbar-created lists with Return, preserving indentation and grouped undo.
+- Add left-aligned wrapping tabs, bounded scrolling, document search, reordering, pins, colors, and group closing.
+- Replace the redundant preferences sidebar with compact, aligned groups.
+- Expand native editing, selections, columns, comments, sorts, bookmarks, marks, completion, navigation, and display commands.
+- Add Boost.Regex search, captured-selection results, explicit legacy encodings, and lossless conversion.
+- Add shared language definitions, advanced UDL rules, and per-language syntax style editing.
+- Add pane transfer, document map, clipboard history, context menu customization, native sessions, independent windows, monitoring, and command/hash tools.
+- Preserve older native snapshots and formatting companions; verify upgrades from the four prior native releases.
+- Ship matching DMG and ZIP applications with corresponding source and SHA-256 checksums.
+- Keep macro parity, Windows data migration, Windows DLL plugins, and Windows-only integrations outside this release.
+
 ## 1.4.1 macOS Preview 4 - 2026-11-01
 
 - Toggle the selected sidebar panel from its View menu command and show its checked state.
