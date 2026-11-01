@@ -20,6 +20,7 @@ static void Bold24(ScintillaView *view) {
     Check(NSProcessInfo.processInfo.environment[@"NOTEX_PROFILE"].length > 0, "explicit isolated test profile");
     Check([self.storage.directory.lastPathComponent hasPrefix:@"test-"], "test profile guard");
     NSError *error = nil;
+    if ([@[@"ui-split",@"ui-search",@"ui-preferences",@"ui-shortcuts",@"ui-language",@"ui-theme"] containsObject:mode]) { [self workbenchUI:mode]; return; }
     if ([mode hasPrefix:@"ui-"]) {
         NSString *path = [self.storage.directory stringByAppendingPathComponent:@"example.py"];
         NSData *code = [@"# NoteX native workspace example\n\nclass Notebook:\n    def add_note(self, title):\n        return title.strip()\n\ndef main():\n    notebook = Notebook()\n    return notebook.add_note('Hello, NoteX')\n" dataUsingEncoding:NSUTF8StringEncoding];
@@ -60,6 +61,7 @@ static void Bold24(ScintillaView *view) {
         self.preferences[@"tabWidth"] = @2;
         [self.macros addObject:@{@"name":@"Recovery Macro", @"actions":@[@{@"message":@(SCI_REPLACESEL), @"w":@0, @"l":@0, @"text":[@"restored" dataUsingEncoding:NSUTF8StringEncoding]}]}];
         Check([self.menuLayout setLayout:@{@"order":@{@"":@[@"/menu:View"]}, @"hidden":@[@"/menu:Format/toggleFormat::1"]} error:&error], "persist feature settings with unsaved session");
+        [self seedWorkbench];
         // Use the regular autosnapshot timer, not a separate test storage implementation.
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1500 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
             Check([NSFileManager.defaultManager fileExistsAtPath:[self.storage.directory stringByAppendingPathComponent:@"session.plist"]], "autosnapshot completed");
@@ -90,6 +92,7 @@ static void Bold24(ScintillaView *view) {
             Check(self.macros.count == 1 && [self.macros[0][@"name"] isEqual:@"Recovery Macro"], "restore saved macro");
             Check(!FindMenuCommand(NSApp.mainMenu, @selector(toggleFormat:), NoteX::Bold) && [[NSApp.mainMenu itemAtIndex:1].title isEqual:@"View"], "restore customized native menus");
             Check(Send(doc.editor, SCI_MARKERGET, 0) & 1, "restore bookmarks");
+            [self verifyWorkbenchRestore];
         }
         [NSApp terminate:nil]; return;
     }
@@ -189,6 +192,7 @@ static void Bold24(ScintillaView *view) {
     NSString *imagePath = NSProcessInfo.processInfo.environment[@"NOTEX_TEST_IMAGE"];
     if (imagePath.length) [[bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}] writeToFile:imagePath atomically:YES];
     [self featureTests];
+    [self workbenchTests];
     printf("TOTAL %u passed\n", checks); fflush(stdout);
     [NSApp terminate:nil];
 }

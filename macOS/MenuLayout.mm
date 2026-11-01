@@ -149,7 +149,8 @@ static BOOL ValidLayout(NSDictionary *value) {
 }
 - (void)reset {
     NSError *error = nil;
-    if (![self setLayout:@{@"order":@{}, @"hidden":@[]} error:&error]) [NSApp presentError:error];
+    NSMutableDictionary *layout=[_settings mutableCopy];layout[@"order"]=@{};layout[@"hidden"]=@[];
+    if (![self setLayout:layout error:&error]) [NSApp presentError:error];
 }
 - (NSArray *)children:(NSDictionary *)node {
     return [self ordered:node ? node[@"children"] : _nodes parent:node ? node[@"key"] : @"" layout:_draft];
@@ -195,7 +196,7 @@ static BOOL ValidLayout(NSDictionary *value) {
     [_tree reloadData]; [_tree expandItem:nil expandChildren:YES];
     [_tree selectRowIndexes:[NSIndexSet indexSetWithIndex:[_tree rowForItem:node]] byExtendingSelection:NO];
 }
-- (void)resetDraft:(id)sender { _draft = [@{@"order":@{}, @"hidden":@[]} mutableCopy]; [_tree reloadData]; }
+- (void)resetDraft:(id)sender { _draft[@"order"]=@{};_draft[@"hidden"]=@[]; [_tree reloadData]; }
 - (void)accept:(id)sender {
     NSError *error = nil;
     if (![self setLayout:_draft error:&error]) { [NSApp presentError:error]; return; }

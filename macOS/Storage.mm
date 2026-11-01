@@ -117,6 +117,9 @@ static NSDictionary *DecodeSession(NSData *data) {
             for (id item in layout[@"order"][key]) if (![item isKindOfClass:NSString.class]) return nil;
         }
         for (id item in layout[@"hidden"]) if (![item isKindOfClass:NSString.class]) return nil;
+        if(layout[@"shortcuts"]){if(![layout[@"shortcuts"] isKindOfClass:NSDictionary.class])return nil;
+            for(id key in layout[@"shortcuts"]){id shortcut=layout[@"shortcuts"][key];if(![key isKindOfClass:NSString.class]||![shortcut isKindOfClass:NSDictionary.class]||![shortcut[@"key"] isKindOfClass:NSString.class]||[shortcut[@"key"] length]>1||![shortcut[@"modifiers"] isKindOfClass:NSNumber.class])return nil;}
+        }
     }
     if (root[@"preferences"]) {
         id preferences = root[@"preferences"];

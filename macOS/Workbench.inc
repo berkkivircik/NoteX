@@ -49,13 +49,15 @@
 - (void)toggleSynchronizedScroll:(id)sender {self.synchronizedScroll=!self.synchronizedScroll;[self tick:nil];}
 - (NSDictionary *)secondaryRecord {
     if(!self.secondaryVisible||!self.secondaryDocument)return @{};
-    return @{@"document":self.secondaryDocument.identifier,@"vertical":@(self.editorSplit.vertical),@"focused":@(self.secondaryFocused),@"synchronized":@(self.synchronizedScroll),@"caret":@(Send(self.secondaryEditor,SCI_GETCURRENTPOS)),@"anchor":@(Send(self.secondaryEditor,SCI_GETANCHOR)),@"firstLine":@(Send(self.secondaryEditor,SCI_GETFIRSTVISIBLELINE))};
+    CGFloat total=self.editorSplit.vertical?self.editorSplit.bounds.size.width:self.editorSplit.bounds.size.height;
+    CGFloat first=self.editorSplit.vertical?self.tabs.frame.size.width:self.tabs.frame.size.height;
+    return @{@"document":self.secondaryDocument.identifier,@"vertical":@(self.editorSplit.vertical),@"ratio":@(total>0?first/total:0.5),@"zoom":@(Send(self.secondaryEditor,SCI_GETZOOM)),@"xOffset":@(Send(self.secondaryEditor,SCI_GETXOFFSET)),@"focused":@(self.secondaryFocused),@"synchronized":@(self.synchronizedScroll),@"caret":@(Send(self.secondaryEditor,SCI_GETCURRENTPOS)),@"anchor":@(Send(self.secondaryEditor,SCI_GETANCHOR)),@"firstLine":@(Send(self.secondaryEditor,SCI_GETFIRSTVISIBLELINE))};
 }
 - (void)restoreSecondary:(NSDictionary *)record {
     if(![record[@"document"] length])return;
     for(NXDocument *doc in self.documents)if([doc.identifier isEqual:record[@"document"]]){
         [self.editorSplit addSubview:self.secondaryHost];self.secondaryVisible=YES;self.editorSplit.vertical=[record[@"vertical"] boolValue];[self bindSecondary:doc];[self.editorSplit adjustSubviews];
-        Send(self.secondaryEditor,SCI_SETSEL,[record[@"anchor"] unsignedLongLongValue],[record[@"caret"] longLongValue]);Send(self.secondaryEditor,SCI_SETFIRSTVISIBLELINE,[record[@"firstLine"] unsignedLongLongValue]);self.synchronizedScroll=[record[@"synchronized"] boolValue];self.secondaryFocused=[record[@"focused"] boolValue];if(self.secondaryFocused)doc.activeEditor=self.secondaryEditor;break;
+        Send(self.secondaryEditor,SCI_SETSEL,[record[@"anchor"] unsignedLongLongValue],[record[@"caret"] longLongValue]);Send(self.secondaryEditor,SCI_SETFIRSTVISIBLELINE,[record[@"firstLine"] unsignedLongLongValue]);Send(self.secondaryEditor,SCI_SETZOOM,[record[@"zoom"] integerValue]);Send(self.secondaryEditor,SCI_SETXOFFSET,[record[@"xOffset"] integerValue]);CGFloat total=self.editorSplit.vertical?self.editorSplit.bounds.size.width:self.editorSplit.bounds.size.height;[self.editorSplit setPosition:total*std::clamp<double>(record[@"ratio"]?[record[@"ratio"] doubleValue]:0.5,0.15,0.85) ofDividerAtIndex:0];self.synchronizedScroll=[record[@"synchronized"] boolValue];self.secondaryFocused=[record[@"focused"] boolValue];if(self.secondaryFocused)doc.activeEditor=self.secondaryEditor;break;
     }
 }
 - (NSDictionary *)userLanguage:(NXDocument *)document {for(NSDictionary *language in self.configuration[@"languages"])if([language[@"id"] isEqual:document.customLanguage])return language;return nil;}
@@ -131,6 +133,7 @@
         NXDocument *doc=[self documentForResult:first];BOOL wasOpen=doc!=nil;NSString *reason=nil;NSData *disk=path.length?[NSData dataWithContentsOfFile:path]:nil;
         if([first[@"id"] length]&&!doc)reason=@"The searched tab was closed.";
         if(path.length&&(!disk||(![first[@"id"] length]&&![NXDigest(disk) isEqual:first[@"diskHash"]])))reason=@"The file changed or is unavailable.";
+        if(doc&&path.length&&![NXDigest(disk) isEqual:doc.diskHash])reason=@"The file changed outside the editor.";
         if(doc&&path.length&&doc.dirty)reason=@"The open document has unsaved changes.";
         if(doc&&![NXDigest(Text(doc.primaryEditor)) isEqual:first[@"textHash"]])reason=@"The document changed after the preview.";
         NSString *companion=[path stringByAppendingString:@".notex"];NSData *sidecar=path.length?[NSData dataWithContentsOfFile:companion]:nil;

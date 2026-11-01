@@ -21,18 +21,24 @@ NSArray *NXSearchMatches(NSString *text, NSDictionary *options, NSError **error)
     NSRegularExpressionOptions flags=[options[@"matchCase"] boolValue]?0:NSRegularExpressionCaseInsensitive;
     NSRegularExpression *regex=[NSRegularExpression regularExpressionWithPattern:pattern options:flags|NSRegularExpressionAnchorsMatchLines error:error];if(!regex)return nil;
     NSMutableArray *results=[NSMutableArray new];
-    [regex enumerateMatchesInString:text options:0 range:NSMakeRange(0,text.length) usingBlock:^(NSTextCheckingResult *match,NSMatchingFlags flags,BOOL *stop){
+    __block NSUInteger cursor=0,bytePosition=0,line=1;__block BOOL timedOut=NO;NSTimeInterval deadline=NSProcessInfo.processInfo.systemUptime+2;
+    @try {
+    [regex enumerateMatchesInString:text options:NSMatchingReportProgress range:NSMakeRange(0,text.length) usingBlock:^(NSTextCheckingResult *match,NSMatchingFlags flags,BOOL *stop){
+        if(NSProcessInfo.processInfo.systemUptime>deadline){timedOut=YES;*stop=YES;return;}
         if(!match)return;
         NSRange r=match.range;
-        NSUInteger position=[[text substringToIndex:r.location] lengthOfBytesUsingEncoding:NSUTF8StringEncoding];
+        bytePosition+=[[text substringWithRange:NSMakeRange(cursor,r.location-cursor)] lengthOfBytesUsingEncoding:NSUTF8StringEncoding];
+        for(NSUInteger i=cursor;i<r.location;++i)if([text characterAtIndex:i]=='\n'||([text characterAtIndex:i]=='\r'&&(i+1==text.length||[text characterAtIndex:i+1]!='\n')))++line;
+        cursor=r.location;NSUInteger position=bytePosition;
         NSUInteger length=[[text substringWithRange:r] lengthOfBytesUsingEncoding:NSUTF8StringEncoding];
         NSString *replacement=[options[@"regex"] boolValue]?[regex replacementStringForResult:match inString:text offset:0 template:options[@"replacement"] ?: @""]:options[@"replacement"] ?: @"";
         NSRange lineRange=[text lineRangeForRange:NSMakeRange(r.location,0)];NSString *excerpt=[[text substringWithRange:lineRange] stringByTrimmingCharactersInSet:NSCharacterSet.newlineCharacterSet];
         if(excerpt.length>240)excerpt=[[excerpt substringToIndex:240] stringByAppendingString:@"…"];
-        NSUInteger line=1;for(NSUInteger i=0;i<r.location;++i)if([text characterAtIndex:i]=='\n'||([text characterAtIndex:i]=='\r'&&(i+1==text.length||[text characterAtIndex:i+1]!='\n')))++line;
         [results addObject:@{@"position":@(position),@"length":@(length),@"line":@(line),@"excerpt":excerpt,@"replacement":replacement}];
         if(results.count>=20000)*stop=YES;
-    }];return results;
+    }];
+    } @catch(NSException *exception){if(error)*error=NXError(@"The regular expression or replacement template could not be evaluated.");return nil;}
+    if(timedOut){if(error)*error=NXError(@"This search exceeded the per-document time limit. Simplify the expression or narrow the search.");return nil;}return results;
 }
 static BOOL MatchesFilter(NSString *path, NSString *patterns, BOOL fallback) {
     if(!patterns.length)return fallback;
@@ -68,6 +74,7 @@ NSArray *NXSearchFiles(NSArray *inputs, NSDictionary *options, BOOL (^cancelled)
         NSString *identity=document?document[@"id"]:path.stringByStandardizingPath;
         if([seen containsObject:identity])continue;[seen addObject:identity];
         if(!MatchesFilter(path.length?path:document[@"title"],options[@"include"],YES)||MatchesFilter(path,options[@"exclude"],NO)||[path.pathExtension isEqual:@"notex"])continue;
+        if(!document){NSDictionary *attributes=[NSFileManager.defaultManager attributesOfItemAtPath:path error:nil];if([attributes[NSFileType] isEqual:NSFileTypeSymbolicLink]||[attributes[NSFileSize] unsignedLongLongValue]>16*1024*1024)continue;}
         NSData *disk=document?document[@"text"]:[NSData dataWithContentsOfFile:path];
         if(disk.length>16*1024*1024)continue;
         NSString *text=document?[[NSString alloc]initWithData:disk encoding:NSUTF8StringEncoding]:NXDecodeText(disk);if(!text)continue;

@@ -168,7 +168,12 @@ static void Alert(NSString *message) {
 - (NSArray *)searchScope:(NSInteger)scope;
 - (void)navigateResult:(NSDictionary *)result;
 - (NSString *)applySearchResults:(NSArray *)results;
+@end
+@interface NXApp (WorkbenchTests)
 - (void)workbenchTests;
+- (void)seedWorkbench;
+- (void)verifyWorkbenchRestore;
+- (void)workbenchUI:(NSString *)mode;
 @end
 @interface NXApp (Tests)
 - (void)selfTest:(NSString *)mode;
@@ -748,6 +753,7 @@ static void Alert(NSString *message) {
 #include "Features.inc"
 #include "Workbench.inc"
 #include "FeatureTests.inc"
+#include "WorkbenchTests.inc"
 #include "SelfTest.inc"
 
 int main(int argc, const char *argv[]) {
