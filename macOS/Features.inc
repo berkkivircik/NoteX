@@ -81,7 +81,7 @@ static BOOL StringMacroMessage(unsigned message) {
         [self.split setHoldingPriority:NSLayoutPriorityDefaultHigh forSubviewAtIndex:0];
         [self.split adjustSubviews];[self.split setPosition:MIN(285,self.split.bounds.size.width*0.35) ofDividerAtIndex:0];
     }else{
-        [self.workspace.view removeFromSuperview];[self.split adjustSubviews];
+        [self.workspace.view removeFromSuperview];[self.split adjustSubviews];self.editorSplit.frame=self.split.bounds;
     }
 }
 - (void)showPanel:(id)sender {

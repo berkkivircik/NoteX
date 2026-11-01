@@ -30,7 +30,8 @@ static void CancelNextDialog(void) {
     [NSApp sendAction:panelItem.action to:panelItem.target from:panelItem];[self validateMenuItem:panelItem];
     Check(self.sidebarVisible&&self.workspace.view.superview==self.split&&panelItem.state==NSControlStateValueOn,"Function List menu opens and checks the sidebar");
     [NSApp sendAction:panelItem.action to:panelItem.target from:panelItem];[self validateMenuItem:panelItem];
-    Check(!self.sidebarVisible&&self.workspace.view.superview==nil&&panelItem.state==NSControlStateValueOff&&self.editorSplit.frame.origin.x<1,"Function List menu hides sidebar and releases its width");
+    Check(!self.sidebarVisible&&self.workspace.view.superview==nil&&panelItem.state==NSControlStateValueOff,"Function List menu hides sidebar and clears its checkmark");
+    Check(self.editorSplit.frame.origin.x<1&&fabs(self.editorSplit.frame.size.width-self.split.bounds.size.width)<1,"hidden sidebar releases its full width to the editor");
     [self showPanel:TestCommand(1)];[self showPanel:TestCommand(0)];
     Check(self.sidebarVisible&&self.workspace.activePanel==0,"switching to another panel keeps sidebar visible");
     [self showPanel:TestCommand(0)];
