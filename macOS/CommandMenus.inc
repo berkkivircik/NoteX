@@ -19,13 +19,16 @@
     for(NSArray *c in commands)[self item:lines title:c[0] action:@selector(editorCommand:) key:@"" tag:[c[1] integerValue]];
     NSArray *transforms=@[@"Trim Leading Whitespace",@"Trim Leading and Trailing Whitespace",@"Remove Empty Lines",@"Remove Blank Lines",@"Reverse Line Order",@"Sort Lexicographically",@"Sort Ignoring Case",@"Sort Naturally",@"Sort Descending",@"Remove Consecutive Duplicate Lines",@"Join Lines",@"Tabs to Spaces",@"Leading Spaces to Tabs"];
     for(NSUInteger i=0;i<transforms.count;++i)[self item:lines title:transforms[i] action:@selector(lineOperation:) key:@"" tag:i];
+    NSArray *moreLines=@[@"Randomize Line Order",@"Sort Integers Ascending",@"Sort Integers Descending",@"Sort Decimal Dot Ascending",@"Sort Decimal Dot Descending",@"Sort Decimal Comma Ascending",@"Sort Decimal Comma Descending",@"Sort by Length Ascending",@"Sort by Length Descending",@"Sort by Locale Ascending",@"Sort by Locale Descending",@"Sort Ignoring Case Descending",@"All Spaces to Tabs",@"Line Endings to Spaces",@"Insert Blank Line Above",@"Insert Blank Line Below",@"Split Lines at Column Guide"];
+    for(NSUInteger i=0;i<moreLines.count;++i)[self item:lines title:moreLines[i] action:@selector(lineOperation:) key:@"" tag:13+i];
     NSMenu *selection=[self menu:@"Selection" parent:edit];
     for(NSArray *c in @[@[@"Add Next Occurrence",@(SCI_MULTIPLESELECTADDNEXT)],@[@"Select All Occurrences",@(SCI_MULTIPLESELECTADDEACH)],@[@"Rotate Main Selection",@(SCI_ROTATESELECTION)],@[@"Swap Anchor and Caret",@(SCI_SWAPMAINANCHORCARET)],@[@"Cancel Additional Selections",@(SCI_CANCEL)]])[self item:selection title:c[0] action:@selector(editorCommand:) key:@"" tag:[c[1] integerValue]];
     [self item:selection title:@"Rectangular Selection" action:@selector(selectionMode:) key:@"" tag:SC_SEL_RECTANGLE];[self item:selection title:@"Normal Selection" action:@selector(selectionMode:) key:@"" tag:SC_SEL_STREAM];
-    NSMenu *cases=[self menu:@"Convert Case" parent:edit];NSArray *names=@[@"Title Case",@"Sentence Case",@"Invert Case"];
+    NSMenu *cases=[self menu:@"Convert Case" parent:edit];NSArray *names=@[@"Title Case",@"Sentence Case",@"Invert Case",@"Random Case",@"Title Case (Preserve Existing Case)",@"Sentence Case (Preserve Existing Case)"];
     for(NSUInteger i=0;i<names.count;++i)[self item:cases title:names[i] action:@selector(caseOperation:) key:@"" tag:i];
     [self item:edit title:@"Toggle Line Comment" action:@selector(commentOperation:) key:@"/" tag:0];
     [self item:edit title:@"Block Comment Selection" action:@selector(commentOperation:) key:@"" tag:1];
+    [self item:edit title:@"Add Line Comments" action:@selector(commentOperation:) key:@"" tag:2];[self item:edit title:@"Remove Line Comments" action:@selector(commentOperation:) key:@"" tag:3];[self item:edit title:@"Add Block Comment" action:@selector(commentOperation:) key:@"" tag:4];[self item:edit title:@"Remove Block Comment" action:@selector(commentOperation:) key:@"" tag:5];
     [self item:edit title:@"Insert Date and Time" action:@selector(insertDate:) key:@"" tag:0];
     [self item:edit title:@"Insert Custom Date and Time…" action:@selector(insertDate:) key:@"" tag:1];
     [self item:edit title:@"Column Editor…" action:@selector(columnEditor:) key:@"" tag:0];

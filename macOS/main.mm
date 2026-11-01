@@ -15,6 +15,7 @@
 #include <cstdio>
 #include <cmath>
 #include "ListEditing.h"
+#include "NumericSort.h"
 #import "NativeEditor.h"
 #import "TabView.h"
 #import "Chooser.h"
@@ -149,6 +150,8 @@ static void Alert(NSString *message) {
 @property NSString *selectionDocument;
 @property NSStackView *toolbar;
 @property BOOL focusMode;
+@property NSString *hintName;
+@property NSInteger hintIndex;
 - (NXDocument *)current;
 - (void)runToolCommand:(id)sender;
 - (NXDocument *)restoreDocumentRecord:(NSDictionary *)record;
@@ -294,6 +297,15 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
 - (void)sortTabs:(id)sender;
 - (void)buildNavigationMenus;
 @end
+@interface NXApp (Completion)
+- (void)completeFunction:(id)sender;
+- (void)parameterHint:(id)sender;
+- (void)completePath:(id)sender;
+- (void)buildCompletionMenus;
+@end
+@interface NXApp (StyleOverrides)
+- (void)styleEditor:(id)sender;
+@end
 @implementation NXApp
 - (NXDocument *)current {
     if(self.secondaryVisible && self.secondaryFocused && self.secondaryDocument) return self.secondaryDocument;
@@ -377,6 +389,8 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
     [self buildSessionMenus];
     [self buildClipboardMenus];
     [self buildNavigationMenus];
+    [self buildCompletionMenus];
+    [self item:[NSApp.mainMenu itemAtIndex:0].submenu title:@"Syntax Style Editor…" action:@selector(styleEditor:) key:@"" tag:0];
 }
 - (void)buildWindow {
     self.window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 1120, 740)
@@ -915,6 +929,8 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
 #include "ClipboardCommands.inc"
 #include "SearchCommands.inc"
 #include "NavigationCommands.inc"
+#include "Completion.inc"
+#include "StyleOverrides.inc"
 #include "Editing.inc"
 #include "Features.inc"
 #include "Workbench.inc"

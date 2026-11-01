@@ -19,11 +19,11 @@
     _pipe=[NSPipe pipe];self.task.standardOutput=_pipe;self.task.standardError=_pipe;self.task.standardInput=NSFileHandle.fileHandleWithNullDevice;
     __weak NXRunTool *owner=self;
     _pipe.fileHandleForReading.readabilityHandler=^(NSFileHandle *handle){NSData *data=handle.availableData;if(!data.length){handle.readabilityHandler=nil;return;}NXRunTool *strong=owner;if(!strong)return;@synchronized(strong){NSUInteger available=strong.captured.length<1024*1024?1024*1024-strong.captured.length:0;if(available)[strong.captured appendData:[data subdataWithRange:NSMakeRange(0,MIN(data.length,available))]];}};
-    self.task.terminationHandler=^(NSTask *task){dispatch_after(dispatch_time(DISPATCH_TIME_NOW,100*NSEC_PER_MSEC),dispatch_get_main_queue(),^{NXRunTool *strong=owner;if(!strong)return;
+    self.task.terminationHandler=^(NSTask *task){dispatch_after(dispatch_time(DISPATCH_TIME_NOW,100*NSEC_PER_MSEC),dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{NXRunTool *strong=owner;if(!strong)return;
         // Never wait for EOF on the UI thread: a child may retain the pipe.
         strong->_pipe.fileHandleForReading.readabilityHandler=nil;
         @synchronized(strong){strong.output=[[NSString alloc]initWithData:strong.captured encoding:NSUTF8StringEncoding] ?: @"The command produced non-UTF-8 output.";}
-        strong->_outputView.string=strong.output;strong->_status.stringValue=[NSString stringWithFormat:@"Exit status: %d%@",task.terminationStatus,strong.captured.length>=1024*1024?@" — output limited to 1 MB":@""];strong->_run.enabled=YES;strong->_stop.enabled=NO;
+        dispatch_async(dispatch_get_main_queue(),^{strong->_outputView.string=strong.output;strong->_status.stringValue=[NSString stringWithFormat:@"Exit status: %d%@",task.terminationStatus,strong.captured.length>=1024*1024?@" — output limited to 1 MB":@""];strong->_run.enabled=YES;strong->_stop.enabled=NO;});
     });};
     if(![self.task launchAndReturnError:error]){_pipe.fileHandleForReading.readabilityHandler=nil;return NO;}_run.enabled=NO;_stop.enabled=YES;_status.stringValue=@"Running…";return YES;
 }

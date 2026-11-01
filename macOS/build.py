@@ -81,6 +81,7 @@ def main():
         shutil.copy2(ROOT / name, resources / name)
     shutil.copytree(ROOT / "LICENSES", resources / "LICENSES")
     shutil.copytree(ROOT / "PowerEditor/installer/functionList", resources / "functionList")
+    shutil.copytree(ROOT / "PowerEditor/installer/APIs", resources / "APIs")
     shutil.copy2(ROOT / "scintilla/License.txt", resources / "Scintilla-LICENSE.txt")
     shutil.copy2(ROOT / "lexilla/License.txt", resources / "Lexilla-LICENSE.txt")
     shutil.copy2(ROOT / "macOS/README.md", resources / "README.md")

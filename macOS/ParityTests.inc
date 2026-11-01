@@ -17,6 +17,11 @@
     Send(view,SCI_MARKERADD,1,0);[self bookmarkLines:TestCommand(2)];Check([view.string isEqual:@"a\nc"],"remove bookmarked line retains neighboring lines");
     SetText(view,[@"AbC" dataUsingEncoding:NSUTF8StringEncoding]);Send(view,SCI_SETSEL,0,3);[self caseOperation:TestCommand(2)];Check([view.string isEqual:@"aBc"],"invert selected case");
     SetText(view,[@"abc" dataUsingEncoding:NSUTF8StringEncoding]);Send(view,SCI_SETSEL,0,3);[self hashCommand:TestCommand(2)];Check([[NSPasteboard.generalPasteboard stringForType:NSPasteboardTypeString] isEqual:@"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"],"SHA-256 selection matches published test vector");
+    Check(NXCompareNumber(NXParseNumber("9999999999999999999999999999999999999999",0),NXParseNumber("10000000000000000000000000000000000000000",0))<0,"integer sorting preserves arbitrary precision");
+    Check(NXCompareNumber(NXParseNumber("-1,20",','),NXParseNumber("-1,19",','))<0&&!NXParseNumber("bad",'.').valid,"decimal sorting handles signs, commas, and invalid input");
+    Check(NXAPI(@"python").count>100,"bundled function completion definitions load");
+    NSMutableDictionary *syntaxStyle=[NXDefaultStyle() mutableCopy];syntaxStyle[@"lexer"]=@"cpp";syntaxStyle[@"style"]=@5;syntaxStyle[@"fontSize"]=@17;syntaxStyle[@"foreground"]=@"FF0000";
+    Check(NXValidateStyles(@[syntaxStyle]),"syntax style overrides validate");NXApplyStyleOverrides(view,@[syntaxStyle],@"cpp");Check(Send(view,SCI_STYLEGETFORE,5)==255&&Send(view,SCI_STYLEGETSIZEFRACTIONAL,5)==1700,"syntax style overrides apply color and fractional font size");
     NSError *error=nil;
     NSArray *boost=NXSearchMatches(@"café 12 📝\nnext 34",@{@"query":@"([0-9]+)",@"replacement":@"<$1>",@"regex":@YES,@"engine":@"boost",@"matchCase":@YES},&error);
     Check(boost.count==2&&[boost[0][@"position"] integerValue]==6&&[boost[0][@"replacement"] isEqual:@"<12>"],"Boost regex preserves UTF-8 positions and capture replacements");

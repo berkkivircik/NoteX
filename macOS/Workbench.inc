@@ -70,6 +70,7 @@
     NSDictionary *theme=nil;for(NSDictionary *candidate in self.configuration[@"themes"])if([candidate[@"id"] isEqual:self.configuration[@"selectedTheme"]])theme=candidate;
     if(!theme){NSMutableDictionary *standard=[NXDefaultTheme() mutableCopy];if(!self.dark)[standard addEntriesFromDictionary:@{@"background":@"FFFFFF",@"foreground":@"282828",@"caret":@"222222",@"selection":@"B7DBEE",@"lineNumbers":@"777777",@"currentLine":@"F1F5F9",@"keyword1":@"6040A0",@"string":@"996622",@"comment":@"337733",@"number":@"985600",@"operator":@"444444"}];theme=standard;}
     NXApplyTheme(document.editor,theme,document.lexer,[self userLanguage:document]!=nil);
+    NXApplyStyleOverrides(document.editor,theme[@"styles"],document.customLanguage.length?[@"user:" stringByAppendingString:document.customLanguage]:document.lexer);
 }
 - (void)updateUserSyntax {
     for(NXDocument *doc in self.documents){NSDictionary *language=[self userLanguage:doc];if(!language)continue;NSData *hash=NXDigest(Text(doc.primaryEditor));
