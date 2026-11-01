@@ -21,6 +21,7 @@ static void Bold24(ScintillaView *view) {
     Check([self.storage.directory.lastPathComponent hasPrefix:@"test-"], "test profile guard");
     if([mode isEqual:@"suite"])Check(!self.sidebarVisible&&self.workspace.view.superview==nil,"new profiles start with the sidebar hidden");
     NSError *error = nil;
+    if([mode isEqual:@"instance-verify"]){Check([Text(self.current.editor) isEqual:Sample()],"independent process restores the exact unsaved Unicode document");Check(!State(self.current.editor).runs.empty(),"independent process restores inline formatting");Check([self snapshot:&error],"independent profile remains recoverable");exit(0);}
     if ([@[@"ui-tabs",@"ui-document-map",@"ui-sidebar-hidden",@"ui-toolbar",@"ui-split",@"ui-search",@"ui-preferences",@"ui-shortcuts",@"ui-language",@"ui-theme"] containsObject:mode]) { [self workbenchUI:mode]; return; }
     if ([mode hasPrefix:@"ui-"]) {
         NSString *path = [self.storage.directory stringByAppendingPathComponent:@"example.py"];

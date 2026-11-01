@@ -85,7 +85,7 @@ static NSString *NXEOL(ScintillaView *view) {auto mode=Send(view,SCI_GETEOLMODE)
     }Send(view,SCI_ENDUNDOACTION);if(action<2){[NSPasteboard.generalPasteboard clearContents];[NSPasteboard.generalPasteboard setString:copied forType:NSPasteboardTypeString];}[self tick:nil];
 }
 - (void)hashCommand:(id)sender {
-    NSInteger action=[sender tag];NSData *data=nil;if(action>=4){NSOpenPanel *panel=[NSOpenPanel openPanel];if([panel runModal]!=NSModalResponseOK)return;data=[NSData dataWithContentsOfURL:panel.URL options:NSDataReadingMappedIfSafe error:nil];}else data=[self.current.editor.selectedString dataUsingEncoding:NSUTF8StringEncoding];if(!data){Alert(@"The input could not be read.");return;}
+    NSInteger action=[sender tag];NSData *data=nil;if(action>=8){NSString *text=NXPrompt(@"Text to Hash",@"");if(!text)return;data=[text dataUsingEncoding:NSUTF8StringEncoding];}else if(action>=4){NSOpenPanel *panel=[NSOpenPanel openPanel];if([panel runModal]!=NSModalResponseOK)return;data=[NSData dataWithContentsOfURL:panel.URL options:NSDataReadingMappedIfSafe error:nil];}else data=[self.current.editor.selectedString dataUsingEncoding:NSUTF8StringEncoding];if(!data){Alert(@"The input could not be read.");return;}
     unsigned char digest[CC_SHA512_DIGEST_LENGTH];NSUInteger size=0;auto bytes=static_cast<const unsigned char *>(data.bytes);
     // Chunk input to avoid truncating CommonCrypto's 32-bit count for large files.
     CC_MD5_CTX md5;CC_SHA1_CTX sha1;CC_SHA256_CTX sha256;CC_SHA512_CTX sha512;NSInteger type=action%4;

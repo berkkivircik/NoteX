@@ -22,7 +22,7 @@
 }
 - (void)copyAllStyledText:(id)sender {
     ScintillaView *view=self.current.editor;auto length=Send(view,SCI_GETLENGTH);std::vector<std::pair<sptr_t,sptr_t>> ranges;
-    for(int indicator=10;indicator<15;++indicator)for(sptr_t pos=0;pos<length;){auto end=Send(view,SCI_INDICATOREND,indicator,pos);if(end<=pos)break;if(Send(view,SCI_INDICATORVALUEAT,indicator,pos))ranges.emplace_back(pos,end);pos=end;}
+    for(int indicator=10;indicator<16;++indicator)for(sptr_t pos=0;pos<length;){auto end=Send(view,SCI_INDICATOREND,indicator,pos);if(end<=pos)break;if(Send(view,SCI_INDICATORVALUEAT,indicator,pos))ranges.emplace_back(pos,end);pos=end;}
     std::sort(ranges.begin(),ranges.end());std::vector<std::pair<sptr_t,sptr_t>> merged;for(auto range:ranges){if(!merged.empty()&&range.first<=merged.back().second)merged.back().second=std::max(merged.back().second,range.second);else merged.push_back(range);}
     NSData *data=Text(view);NSMutableArray *text=[NSMutableArray new];for(auto range:merged)[text addObject:[[NSString alloc]initWithData:[data subdataWithRange:NSMakeRange(range.first,range.second-range.first)] encoding:NSUTF8StringEncoding]];[NSPasteboard.generalPasteboard clearContents];[NSPasteboard.generalPasteboard setString:[text componentsJoinedByString:NXEOL(view)] forType:NSPasteboardTypeString];
 }

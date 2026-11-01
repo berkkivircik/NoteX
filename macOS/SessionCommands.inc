@@ -14,7 +14,7 @@
         if(self.documents.count+[session[@"documents"] count]>1000){Alert(@"Close some documents before opening this session. The session limit is 1,000 documents.");return;}
         if(![self snapshot:&error]){Alert(error.localizedDescription);return;}
         BOOL wasRestoring=self.restoring;self.restoring=YES;
-        for(NSDictionary *record in session[@"documents"]){NXDocument *doc=[self restoreDocumentRecord:record];doc.identifier=NSUUID.UUID.UUIDString;doc.tab.identifier=doc.identifier;
+        for(NSDictionary *record in session[@"documents"]){NXDocument *doc=[self restoreDocumentRecord:record];doc.identifier=NSUUID.UUID.UUIDString;doc.tab.identifier=doc.identifier;doc.secondaryOnly=NO;
             for(NXDocument *other in self.documents)if(other!=doc&&doc.path.length&&[other.path isEqual:doc.path]){doc.path=@"";doc.title=[@"Recovered — " stringByAppendingString:doc.title];doc.restoredDirty=YES;break;}
         }
         self.restoring=wasRestoring;[self tick:nil];

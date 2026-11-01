@@ -18,12 +18,12 @@
     NSPopUpButton *_saved;
     NSTextView *_outputView;
     NSButton *_run,*_stop;
-    NSPipe *_pipe;
 }
 - (instancetype)init {return [super initWithWindow:nil];}
 - (BOOL)launchCommand:(NSString *)command environment:(NSDictionary *)environment error:(NSError **)error {
     if(self.task.running){if(error)*error=NXError(@"A command is already running. Stop it before starting another.");return NO;}
     if(!command.length||command.length>65536){if(error)*error=NXError(@"Enter a command of at most 65,536 characters.");return NO;}
+    for(NSString *key in environment)if([key containsString:@"="]||[environment[key] lengthOfBytesUsingEncoding:NSUTF8StringEncoding]>131000||[environment[key] rangeOfString:[NSString stringWithFormat:@"%C",(unichar)0]].location!=NSNotFound){if(error)*error=NXError(@"Document variables contain a null byte or exceed the environment size limit. Narrow the selection before running.");return NO;}
     self.captured=[NSMutableData new];self.output=@"";
     NSMutableDictionary *variables=[NSProcessInfo.processInfo.environment mutableCopy];[variables addEntriesFromDictionary:environment ?: @{}];
     std::vector<std::string> storage;for(NSString *key in variables)storage.push_back(std::string(key.UTF8String)+"="+[variables[key] UTF8String]);

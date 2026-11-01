@@ -257,6 +257,10 @@ static void Alert(NSString *message) {
 - (void)hashCommand:(id)sender;
 @end
 
+@interface NXApp (Instances)
+- (void)buildInstanceMenus;
+- (NSTask *)launchInstanceWithDocument:(NXDocument *)document testMode:(BOOL)test error:(NSError **)error;
+@end
 @interface NXApp (ExtraCommands)
 - (void)buildExtraMenus;
 - (void)numberColumns:(id)sender;
@@ -425,7 +429,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
     [self buildNavigationMenus];
     [self buildCompletionMenus];
     [self buildTransferMenus];
-    [self buildUtilityMenus];[self buildExtraMenus];
+    [self buildUtilityMenus];[self buildExtraMenus];[self buildInstanceMenus];
     [self item:[NSApp.mainMenu itemAtIndex:0].submenu title:@"Syntax Style Editor…" action:@selector(styleEditor:) key:@"" tag:0];
 }
 - (void)buildWindow {
@@ -950,7 +954,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
 - (void)runToolCommand:(id)sender {
     if(!self.runTool){self.runTool=[NXRunTool new];self.runTool.commands=self.configuration[@"runCommands"] ?: @[];__weak NXApp *owner=self;
         self.runTool.saveCommands=^BOOL(NSArray *commands){NSMutableDictionary *configuration=[owner.configuration mutableCopy];configuration[@"runCommands"]=commands;return [owner commitConfiguration:configuration];};
-        self.runTool.documentEnvironment=^NSDictionary *{NXApp *app=owner;NSString *selection=app.current.editor.selectedString;return @{@"NOTEX_FILE":app.current.path ?: @"",@"NOTEX_DIRECTORY":app.current.path.length?app.current.path.stringByDeletingLastPathComponent:NSHomeDirectory(),@"NOTEX_SELECTION":selection.length<=65536?selection:@"",@"NOTEX_LINE":[NSString stringWithFormat:@"%ld",(long)Send(app.current.editor,SCI_LINEFROMPOSITION,Send(app.current.editor,SCI_GETCURRENTPOS))+1]};};
+        self.runTool.documentEnvironment=^NSDictionary *{NXApp *app=owner;NSString *selection=app.current.editor.selectedString;return @{@"NOTEX_FILE":app.current.path ?: @"",@"NOTEX_DIRECTORY":app.current.path.length?app.current.path.stringByDeletingLastPathComponent:NSHomeDirectory(),@"NOTEX_SELECTION":selection,@"NOTEX_LINE":[NSString stringWithFormat:@"%ld",(long)Send(app.current.editor,SCI_LINEFROMPOSITION,Send(app.current.editor,SCI_GETCURRENTPOS))+1]};};
     }[self.runTool showForWindow:self.window];
 }
 - (void)showSession:(id)sender { [NSWorkspace.sharedWorkspace openURL:[NSURL fileURLWithPath:self.storage.directory]]; }
@@ -970,6 +974,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
 #include "Completion.inc"
 #include "UtilityCommands.inc"
 #include "ExtraCommands.inc"
+#include "Instances.inc"
 #include "ViewTransfer.inc"
 #include "StyleOverrides.inc"
 #include "Editing.inc"
