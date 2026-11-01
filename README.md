@@ -16,7 +16,7 @@ Windows x64 is required. This release is unsigned.
 ### Native macOS preview
 
 The native Apple Silicon edition is available separately as
-`NoteX-1.3.2-macos-arm64.zip` in the
+`NoteX-1.3.3-macos-arm64.zip` in the
 [macOS preview release](https://github.com/berkkivircik/NoteX/releases/tag/v1.3.3-macos.2).
 It uses AppKit and Cocoa Scintilla, without Wine or Rosetta. Requires macOS 14
 or later. See [the macOS guide](macOS/README.md) for installation, recovery,

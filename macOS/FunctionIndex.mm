@@ -97,6 +97,7 @@ class Indexer {
     void functions(NSXMLElement *rule, Span zone, const std::string &scope, const std::vector<Span> &excluded) {
         if (!rule) return;
         each(Attr(rule, @"mainExpr"), zone, [&](Span match) {
+            if (inside(match.start, comments)) return true;
             Span label = name(match, Child(rule, @"functionName"));
             if (label.start == label.end || inside(label.start, comments) || inside(label.start, excluded)) return true;
             std::string group = scope;
@@ -124,7 +125,7 @@ class Indexer {
             symbols.push_back({className, parent, label.start, true});
             Span body{open.empty() ? label.end : match.end, end};
             auto nested = classes(rule, body, full, depth + 1);
-            functions(Child(rule, @"function"), body, full, nested);
+            functions(Child(rule, @"function"), {match.start, end}, full, nested);
             return true;
         });
         return found;

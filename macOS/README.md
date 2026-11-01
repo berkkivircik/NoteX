@@ -51,6 +51,8 @@ name order and source order. Rules lets you select a custom Notepad++ Function L
 XML parser or return to automatic selection. The app bundles the upstream parser
 rules and uses Boost.Regex. Parsing runs off the UI thread and supports documents
 up to 16 MB. A syntax lexer does not necessarily have a Function List parser.
+Valid definitions at the end of a file remain visible, including definitions that
+the upstream parser omits when a match ends exactly at its search boundary.
 
 View > Project Panel 1, 2, or 3 opens an independent workspace. Add creates a project;
 Folder creates a logical group; Files adds existing files or directories. Rename,

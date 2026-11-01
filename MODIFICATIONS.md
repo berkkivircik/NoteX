@@ -34,6 +34,8 @@ The second native preview adds `macOS/MenuLayout`, `macOS/Workspace`,
 It extends native session validation and persistence, and bundles the original
 Notepad++ Function List rules with their existing notices. Native builds now use
 the included Boost.Regex headers. These additions were made November 1, 2026.
+`PowerEditor/installer/functionList/fortran77.xml` corrects an unbalanced
+comment expression, with a dated modification notice in the file.
 
 The November 1, 2026 macOS port adds the AppKit application, storage, build,
 and native integration tests in `macOS/`. It modifies
