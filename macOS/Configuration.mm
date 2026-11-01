@@ -177,7 +177,7 @@ void NXStyleLanguage(ScintillaView *v, NSDictionary *language) {
 - (void)showRecord {
     _controls=[NSMutableDictionary new];NSView *form=[[NSView alloc]initWithFrame:NSMakeRect(0,0,520,100)];_form.documentView=form;
     if(_selected<0||_selected>=(NSInteger)_records.count)return;
-    NSMutableDictionary *record=_records[_selected];if([_kind isEqual:@"languages"]){NSDictionary *advanced=NXAdvancedLanguageDefaults();for(NSString *key in advanced)if(!record[key])record[key]=advanced[key];}
+    NSMutableDictionary *record=_records[_selected];if([_kind isEqual:@"preferences"]){for(NSString *key in NXDefaultPreferences())if(!record[key])record[key]=NXDefaultPreferences()[key];}if([_kind isEqual:@"languages"]){NSDictionary *advanced=NXAdvancedLanguageDefaults();for(NSString *key in advanced)if(!record[key])record[key]=advanced[key];}
     NSArray *keys;
     if([_kind isEqual:@"languages"])keys=@[@"name",@"extensions",@"caseSensitive",@"lineComment",@"blockOpen",@"blockClose",@"quotes",@"escape",@"foldOpen",@"foldClose",@"keywords1",@"keywords2",@"keywords3",@"keywords4",@"keywords5",@"keywords6",@"keywords7",@"keywords8"];
     else if([_kind isEqual:@"styles"])keys=@[@"name",@"foreground",@"background",@"font",@"fontSize",@"bold",@"italic",@"underline"];

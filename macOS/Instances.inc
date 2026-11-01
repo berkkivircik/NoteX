@@ -5,7 +5,7 @@
     if(![self snapshot:error])return nil;
     NSString *directory=[self.storage.directory stringByAppendingPathComponent:[NSString stringWithFormat:@"Instances/%@%@",test?@"test-":@"",NSUUID.UUID.UUIDString]];
     NSMutableDictionary *session=[self.lastSnapshot mutableCopy];NSMutableDictionary *record=[document.record mutableCopy];if(record)record[@"secondaryOnly"]=@NO;
-    session[@"documents"]=record?@[record]:@[];session[@"selected"]=@0;session[@"secondary"]=@{};session[@"workspace"]=@{};
+    session[@"documents"]=record?@[record]:@[];session[@"selected"]=@0;session[@"secondary"]=@{};[session removeObjectForKey:@"workspace"];
     NXStorage *storage=[[NXStorage alloc]initWithDirectory:directory error:error];if(!storage||![storage save:session error:error])return nil;storage=nil;
     NSTask *task=[NSTask new];task.executableURL=NSBundle.mainBundle.executableURL;task.arguments=test?@[@"--self-test",@"instance-verify"]:@[];
     NSMutableDictionary *environment=[NSProcessInfo.processInfo.environment mutableCopy];environment[@"NOTEX_PROFILE"]=directory;task.environment=environment;

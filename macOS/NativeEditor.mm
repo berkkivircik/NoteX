@@ -6,7 +6,7 @@
 @implementation NXContent
 - (NSMenu *)menuForEvent:(NSEvent *)event {
     NSView *view=self;while(view&&![view isKindOfClass:NXEditor.class])view=view.superview;
-    NXEditor *editor=(NXEditor *)view;return editor.editorContextMenu?editor.editorContextMenu():[super menuForEvent:event];
+    [self.window makeFirstResponder:self];NXEditor *editor=(NXEditor *)view;return editor.editorContextMenu?editor.editorContextMenu():[super menuForEvent:event];
 }
 - (void)keyDown:(NSEvent *)event {
     if (![self hasMarkedText] && (event.keyCode == 36 || event.keyCode == 76) &&
