@@ -1,6 +1,6 @@
 # NoteX modification notice
 
-Modified distributions: NoteX 1.3.1 for Windows and 1.4.0 macOS Preview 3.
+Modified distributions: NoteX 1.3.1 for Windows and 1.4.1 macOS Preview 4.
 Modifier: Berk Kivircik. Latest modification date: November 1, 2026.
 NoteX modifications: Copyright (C) 2026 Berk Kivircik.
 The modified work as a whole is distributed under GNU GPL version 3.
@@ -28,6 +28,10 @@ The NoteX publication updates branding, legal notices, build discovery, and clea
 packaging. Legacy `.notex` files and menu settings remain compatible.
 
 ## Modified upstream code and project files
+
+The fourth native preview updates the macOS application, workspace, and feature
+commands on November 1, 2026 for sidebar toggles, compact line-number margins,
+and toolbar list commands. Native regression and upgrade tests cover these changes.
 
 The third native preview adds `macOS/Configuration`, `macOS/FileSearch`,
 `macOS/Workbench.inc`, and workbench integration tests. It extends the native

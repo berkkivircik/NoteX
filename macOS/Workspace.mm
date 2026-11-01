@@ -170,6 +170,7 @@ BOOL NXWriteWorkspace(NSDictionary *root, NSString *path, NSError **error) {
     if (_mode >= 1 && _mode <= 3) _dirty[_mode - 1] = @YES;
     [self refreshRows]; [self notifyChange];
 }
+- (NSInteger)activePanel { return _mode; }
 - (void)showPanel:(NSInteger)panel { (void)self.view; [_panel selectItemAtIndex:std::clamp<NSInteger>(panel, 0, 4)]; [self panelChanged:nil]; }
 - (void)panelChanged:(id)sender { _mode = _panel.indexOfSelectedItem; [self refresh:nil]; [self notifyChange]; }
 - (void)controlTextDidChange:(NSNotification *)notification { [self refreshRows]; [_tree expandItem:nil expandChildren:YES]; }

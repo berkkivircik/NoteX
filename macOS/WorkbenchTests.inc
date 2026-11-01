@@ -11,9 +11,11 @@ static void CancelNextDialog(void) {
     self.configuration=[@{@"languages":@[language],@"themes":@[theme],@"selectedTheme":@"test-theme"} mutableCopy];self.current.customLanguage=@"test-language";
     self.preferences[@"caretWidth"]=@2;
     NSError *error=nil;Check([self.menuLayout setShortcuts:@{@"/menu:Edit/showFind::0":@{@"key":@"f",@"modifiers":@(NSEventModifierFlagControl|NSEventModifierFlagOption)}} error:&error],"persist customized shortcut");
+    self.sidebarVisible=NO;[self applySidebarVisibility];
     [self refreshEditorSettings];[self cloneView:TestCommand(2)];Send(self.secondaryEditor,SCI_SETZOOM,2);
 }
 - (void)verifyWorkbenchRestore {
+    Check(!self.sidebarVisible&&self.workspace.view.superview==nil,"restore hidden sidebar without reserved width");
     Check(self.secondaryVisible&&!self.editorSplit.vertical,"restore horizontal split view");
     Check(Send(self.secondaryEditor,SCI_GETDOCPOINTER)==Send(self.secondaryDocument.primaryEditor,SCI_GETDOCPOINTER),"restored clone shares the original document");
     Check(Send(self.secondaryEditor,SCI_GETZOOM)==2,"restore independent clone zoom");
@@ -23,6 +25,28 @@ static void CancelNextDialog(void) {
     Check(find.keyEquivalentModifierMask==(NSEventModifierFlagControl|NSEventModifierFlagOption),"restore shortcut assignment");
 }
 - (void)workbenchTests {
+    self.sidebarVisible=NO;[self applySidebarVisibility];
+    NSMenuItem *panelItem=FindMenuCommand(NSApp.mainMenu,@selector(showPanel:),0);
+    [NSApp sendAction:panelItem.action to:panelItem.target from:panelItem];[self validateMenuItem:panelItem];
+    Check(self.sidebarVisible&&self.workspace.view.superview==self.split&&panelItem.state==NSControlStateValueOn,"Function List menu opens and checks the sidebar");
+    [NSApp sendAction:panelItem.action to:panelItem.target from:panelItem];[self validateMenuItem:panelItem];
+    Check(!self.sidebarVisible&&self.workspace.view.superview==nil&&panelItem.state==NSControlStateValueOff&&self.editorSplit.frame.origin.x<1,"Function List menu hides sidebar and releases its width");
+    [self showPanel:TestCommand(1)];[self showPanel:TestCommand(0)];
+    Check(self.sidebarVisible&&self.workspace.activePanel==0,"switching to another panel keeps sidebar visible");
+    [self showPanel:TestCommand(0)];
+    NXDocument *listDoc=[self newDocument:nil];SetText(listDoc.primaryEditor,[@"first\nsecond\nkeep\n" dataUsingEncoding:NSUTF8StringEncoding]);Send(listDoc.primaryEditor,SCI_SETSEL,0,13);
+    [self.bulletListButton performClick:nil];
+    Check([listDoc.primaryEditor.string isEqual:@"• first\n• second\nkeep\n"],"toolbar bullet button changes only selected lines");
+    Send(listDoc.primaryEditor,SCI_UNDO);Check([listDoc.primaryEditor.string isEqual:@"first\nsecond\nkeep\n"],"toolbar bullet insertion undoes in one action");
+    Send(listDoc.primaryEditor,SCI_SETSEL,0,13);[self.numberedListButton performClick:nil];
+    Check([listDoc.primaryEditor.string isEqual:@"1. first\n2. second\nkeep\n"],"toolbar numbered button numbers selected lines");
+    Send(listDoc.primaryEditor,SCI_UNDO);[self cloneView:TestCommand(1)];Send(self.secondaryEditor,SCI_SETSEL,0,5);[self.bulletListButton performClick:nil];
+    Check([listDoc.primaryEditor.string hasPrefix:@"• first"]&&self.current.editor==self.secondaryEditor,"list toolbar commands edit the focused clone");[self closeSecondary:nil];
+    self.preferences[@"lineNumbers"]=@YES;[self refreshEditorSettings];SetText(listDoc.primaryEditor,[@"one" dataUsingEncoding:NSUTF8StringEncoding]);[self updateControls];
+    auto narrow=Send(listDoc.primaryEditor,SCI_GETMARGINWIDTHN,0);Check(narrow>0&&narrow<56,"short document uses a compact line-number gutter");
+    SetText(listDoc.primaryEditor,[[[@"\n" stringByPaddingToLength:1000 withString:@"\n" startingAtIndex:0] stringByAppendingString:@"last"] dataUsingEncoding:NSUTF8StringEncoding]);[self updateControls];
+    Check(Send(listDoc.primaryEditor,SCI_GETMARGINWIDTHN,0)>narrow,"line-number gutter expands for four-digit line counts");
+    SetText(listDoc.primaryEditor,NSData.data);[self updateControls];Check(Send(listDoc.primaryEditor,SCI_GETMARGINWIDTHN,0)==narrow,"line-number gutter shrinks when line count falls");
     NSError *error=nil;NXDocument *doc=[self newDocument:nil];SetText(doc.primaryEditor,[@"alpha café\nsecond\n" dataUsingEncoding:NSUTF8StringEncoding]);Bold24(doc.primaryEditor);
     Send(doc.primaryEditor,SCI_GOTOPOS,0);[self cloneView:TestCommand(1)];
     Check(self.secondaryVisible&&self.editorSplit.vertical&&Send(self.secondaryEditor,SCI_GETDOCPOINTER)==Send(doc.primaryEditor,SCI_GETDOCPOINTER),"split clone shares Scintilla document ownership");
@@ -103,6 +127,8 @@ static void CancelNextDialog(void) {
 - (void)workbenchUI:(NSString *)mode {
     NXDocument *doc=self.current;SetText(doc.primaryEditor,[@"NoteX Workbench\n\nbegin café {\n    // Highlight a user-defined language\n    print(\"Hello, NoteX\");\n}\n" dataUsingEncoding:NSUTF8StringEncoding]);[self seedWorkbench];
     if(![mode isEqual:@"ui-split"])[self closeSecondary:nil];
+    if([mode isEqual:@"ui-sidebar-hidden"]){SetText(doc.primaryEditor,NSData.data);[self updateControls];Check(!self.sidebarVisible&&self.editorSplit.frame.origin.x<1,"hidden-sidebar UI uses full editor width");}
+    if([mode isEqual:@"ui-toolbar"]){SetText(doc.primaryEditor,[@"First item\nSecond item\n\nFirst step\nSecond step" dataUsingEncoding:NSUTF8StringEncoding]);Send(doc.primaryEditor,SCI_SETSEL,0,Send(doc.primaryEditor,SCI_POSITIONFROMLINE,2));[self.bulletListButton performClick:nil];Send(doc.primaryEditor,SCI_SETSEL,Send(doc.primaryEditor,SCI_POSITIONFROMLINE,3),Send(doc.primaryEditor,SCI_GETLENGTH));[self.numberedListButton performClick:nil];Send(doc.primaryEditor,SCI_GOTOPOS,0);}
     if([mode isEqual:@"ui-search"]){[self findInFiles:nil];NSTextField *query=[self.fileSearch valueForKey:@"query"];query.stringValue=@"NoteX";[(NSPopUpButton *)[self.fileSearch valueForKey:@"scope"] selectItemAtIndex:1];[NSApp sendAction:NSSelectorFromString(@"search:") to:self.fileSearch from:nil];}
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW,2*NSEC_PER_SEC),dispatch_get_main_queue(),^{
         if([mode isEqual:@"ui-search"])Check([[self.fileSearch valueForKey:@"results"] count]==2,"native file search displays unsaved document results");

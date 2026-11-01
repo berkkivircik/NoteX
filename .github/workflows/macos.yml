@@ -18,13 +18,13 @@ jobs:
         run: python3 macOS/test.py
       - name: Package application
         run: |
-          ditto -c -k --sequesterRsrc --keepParent dist/macOS/NoteX.app dist/NoteX-1.4.0-macos-arm64.zip
-          shasum -a 256 dist/NoteX-1.4.0-macos-arm64.zip > dist/SHA256SUMS-macos.txt
+          ditto -c -k --sequesterRsrc --keepParent dist/macOS/NoteX.app dist/NoteX-1.4.1-macos-arm64.zip
+          shasum -a 256 dist/NoteX-1.4.1-macos-arm64.zip > dist/SHA256SUMS-macos.txt
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         with:
           name: NoteX-macos-arm64
           path: |
-            dist/NoteX-1.4.0-macos-arm64.zip
+            dist/NoteX-1.4.1-macos-arm64.zip
             dist/SHA256SUMS-macos.txt
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
         if: always()
@@ -48,7 +48,7 @@ jobs:
       - name: Verify the same application on newer macOS
         run: |
           mkdir -p dist/macOS
-          ditto -x -k dist/NoteX-1.4.0-macos-arm64.zip dist/macOS
+          ditto -x -k dist/NoteX-1.4.1-macos-arm64.zip dist/macOS
           codesign --verify --strict dist/macOS/NoteX.app
           python3 macOS/test.py
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4

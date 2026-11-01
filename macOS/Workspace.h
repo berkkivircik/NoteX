@@ -12,6 +12,7 @@ BOOL NXValidateProject(id node, NSUInteger *count, unsigned depth);
 @property(copy) void (^refreshRequested)(void);
 @property(nonatomic, readonly) NSArray *projects;
 @property(nonatomic, readonly) NSArray *symbols;
+@property(nonatomic, readonly) NSInteger activePanel;
 - (instancetype)initWithState:(NSDictionary *)state;
 - (NSDictionary *)record;
 - (void)showPanel:(NSInteger)panel;

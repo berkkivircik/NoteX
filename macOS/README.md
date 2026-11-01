@@ -2,7 +2,8 @@
 
 The native macOS edition uses AppKit, Cocoa Scintilla, the shared NoteX formatting
 engine, and Lexilla. It does not use Wine, Rosetta, Electron, or a web view.
-Preview 3 adds split/clone views, find and replace in files, a preferences editor,
+Preview 4 improves sidebar toggling, adds compact line-number gutters and list
+buttons to the toolbar, and retains split/clone views, find and replace in files, a preferences editor,
 a shortcut editor, and user-defined language and theme editors. The Windows and
 macOS editions share the editing and formatting engine and use native interfaces.
 
@@ -47,7 +48,7 @@ commands within a menu. Apply saves the layout; Cancel keeps the previous layout
 The application menu, Quit, and menu recovery commands remain accessible.
 NoteX > Reset Menu Layout restores the defaults.
 
-View > Function List shows functions and classes for the active document. Double-click
+View > Function List toggles the sidebar and shows functions and classes for the active document. Double-click
 a symbol to navigate to its definition. Filter narrows the tree; A–Z switches between
 name order and source order. Rules lets you select a custom Notepad++ Function List
 XML parser or return to automatic selection. The app bundles the upstream parser
@@ -66,7 +67,10 @@ An externally changed workspace is protected against silent replacement.
 
 View > Folder as Workspace browses selected directories. Refresh rereads the directory
 tree. Hidden files and symbolic links are skipped. The sidebar selector switches
-between the five views; View > Toggle Sidebar hides or shows it.
+between the five views; View > Toggle Sidebar hides or shows it. Selecting the
+currently visible panel from the View menu hides it; selecting a different panel
+switches to that panel. New profiles start with the sidebar hidden. Existing
+profiles retain their visibility setting, including across app updates.
 
 ## Split and clone views
 
@@ -147,6 +151,15 @@ The preferences, language, and theme editors support validated JSON import/expor
 Import replaces the current draft; it does not change active settings until Apply.
 Names must be unique. Language comment delimiters must be paired. Exported settings
 contain configuration, not document text or session recovery data.
+
+## Toolbar lists and line numbers
+
+The Bulleted List and Numbered List toolbar buttons apply to the selected lines
+or the current line when there is no selection. They use the same commands as
+the Format menu, target the focused split view, and can be undone in one action.
+A selection ending at the start of the next line leaves that next line unchanged.
+Line-number margins adjust to the number of digits and the editor font instead
+of reserving a fixed-width blank area. Bookmark and folding controls remain available.
 
 ## Other features
 

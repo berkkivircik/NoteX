@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.1 macOS Preview 4 - 2026-11-01
+
+- Toggle the selected sidebar panel from its View menu command and show its checked state.
+- Start new profiles with the sidebar hidden and preserve existing visibility preferences.
+- Fit line-number margins to their digit count and font size.
+- Add accessible Bulleted List and Numbered List toolbar buttons.
+- Keep list changes inside the selected lines, retain focused-clone editing, and group undo.
+- Verify upgrading sessions created by the published 1.4.0 native binary.
+
 ## 1.4.0 macOS Preview 3 - 2026-11-01
 
 - Add horizontal and vertical split views, shared-document clones, independent

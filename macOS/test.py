@@ -48,6 +48,7 @@ with tempfile.TemporaryDirectory(prefix="notex-native-tests-") as directory:
         # Upgrade profiles created by both previously published native binaries.
         releases = [
             ("v1.3.2-macos.1", "1.3.2", "93b4170c541a96dcca15a60c06a2528b492613b0704acb386af0ecec808a9748"),
+            ("v1.4.0-macos.3", "1.4.0", "5ee1a86269ef1e6b9ac8e8e95c59ee25d6e5c5e9c1ebd616348735d155eade90"),
             ("v1.3.3-macos.2", "1.3.3", "d6cc0f369c4ffb7b99a2c95604b74ac3b03f3464c8580d8a544fe4837002a963"),
         ]
         for tag, version, digest in releases:
@@ -78,7 +79,7 @@ with tempfile.TemporaryDirectory(prefix="notex-native-tests-") as directory:
             process.wait(timeout=10)
     run(APP, "restore", work / "test-crash")
     if os.environ.get("CI"):
-        for mode in ("ui-function", "ui-project", "ui-menu", "ui-split", "ui-search", "ui-preferences", "ui-shortcuts", "ui-language", "ui-theme"):
+        for mode in ("ui-sidebar-hidden", "ui-toolbar", "ui-function", "ui-project", "ui-menu", "ui-split", "ui-search", "ui-preferences", "ui-shortcuts", "ui-language", "ui-theme"):
             log = work / f"{mode}.log"
             with log.open("w") as output:
                 process = subprocess.Popen([str(APP / "Contents/MacOS/NoteX"), "--self-test", mode],

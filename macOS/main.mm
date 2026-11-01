@@ -89,6 +89,8 @@ static void Alert(NSString *message) {
 @property NSTextField *status;
 @property NSComboBox *family;
 @property NSComboBox *size;
+@property NSButton *bulletListButton;
+@property NSButton *numberedListButton;
 @property NSTextField *findText;
 @property NSTextField *replaceText;
 @property NSStackView *findBar;
@@ -141,6 +143,8 @@ static void Alert(NSString *message) {
 - (void)resetMenus:(id)sender;
 - (void)showPanel:(id)sender;
 - (void)toggleSidebar:(id)sender;
+- (void)applySidebarVisibility;
+- (void)updateLineNumberMargin:(ScintillaView *)view;
 @end
 @interface NXApp (FeatureTests)
 - (void)featureTests;
@@ -283,6 +287,14 @@ static void Alert(NSString *message) {
     [self refreshLanguageChoices];
     self.language.target = self; self.language.action = @selector(changeLanguage:);
     [self.language.widthAnchor constraintEqualToConstant:140].active = YES;
+    self.bulletListButton=[self button:@"• ≡" action:@selector(makeList:) tag:0];
+    self.numberedListButton=[self button:@"1. ≡" action:@selector(makeList:) tag:1];
+    for(NSButton *button in @[self.bulletListButton,self.numberedListButton]){
+        NSString *label=button.tag?@"Numbered List":@"Bulleted List";
+        NSImage *icon=[NSImage imageWithSystemSymbolName:button.tag?@"list.number":@"list.bullet" accessibilityDescription:label];
+        if(icon){button.image=icon;button.imagePosition=NSImageOnly;}
+        button.toolTip=label;[button setAccessibilityLabel:label];[button.widthAnchor constraintEqualToConstant:32].active=YES;
+    }
     NSStackView *toolbar = [NSStackView stackViewWithViews:@[
         [self button:@"+" action:@selector(newDocument:) tag:0], self.family, self.size,
         [self button:@"B" action:@selector(toggleFormat:) tag:NoteX::Bold],
@@ -290,7 +302,7 @@ static void Alert(NSString *message) {
         [self button:@"U" action:@selector(toggleFormat:) tag:NoteX::Underline],
         [self button:@"S̶" action:@selector(toggleFormat:) tag:NoteX::Strike],
         [self button:@"Color" action:@selector(pickColor:) tag:NoteX::Fore],
-        [self button:@"Highlight" action:@selector(pickColor:) tag:NoteX::Highlight], self.language]];
+        [self button:@"Highlight" action:@selector(pickColor:) tag:NoteX::Highlight], self.bulletListButton, self.numberedListButton, self.language]];
     toolbar.spacing = 6;
     toolbar.edgeInsets = NSEdgeInsetsMake(8, 10, 8, 10);
     self.findText = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 0, 180, 24)];
@@ -354,7 +366,7 @@ static void Alert(NSString *message) {
     self.syntaxHashes=[NSMutableDictionary new];
     NSDictionary *extra=@{@"caretWidth":@1,@"blinkRate":@500,@"edgeColumn":@0,@"snapshotSeconds":@1,@"defaultEncoding":@0,@"defaultEOL":@(SC_EOL_LF),@"indentGuides":@YES,@"showEOL":@NO,@"highlightLine":@NO,@"wrap":@(self.wrap),@"dark":@(self.dark)};
     for(NSString *key in extra)if(!self.preferences[key])self.preferences[key]=extra[key];
-    self.sidebarVisible = session[@"sidebarVisible"] ? [session[@"sidebarVisible"] boolValue] : YES;
+    self.sidebarVisible = session[@"sidebarVisible"] ? [session[@"sidebarVisible"] boolValue] : NO;
     self.workspace = [[NXWorkspace alloc] initWithState:[session[@"workspace"] isKindOfClass:NSDictionary.class] ? session[@"workspace"] : @{}];
     __weak NXApp *weakSelf = self;
     self.workspace.openFile = ^(NSString *path) { NSError *openError = nil; if (![weakSelf openPath:path error:&openError]) Alert(openError.localizedDescription); };
@@ -393,8 +405,7 @@ static void Alert(NSString *message) {
     if (selected >= 0 && selected < (NSInteger)self.documents.count) [self.tabs selectTabViewItemAtIndex:selected];
     [self restoreSecondary:session[@"secondary"]];
     self.restoring = NO;
-    self.workspace.view.hidden = !self.sidebarVisible;
-    [self.split setPosition:self.sidebarVisible ? 285 : 0 ofDividerAtIndex:0];
+    [self applySidebarVisibility];
     self.timer = [NSTimer scheduledTimerWithTimeInterval:[self.preferences[@"snapshotSeconds"] doubleValue] target:self selector:@selector(tick:) userInfo:nil repeats:YES];
     [self.window makeKeyAndOrderFront:nil];
     [NSApp activateIgnoringOtherApps:YES];
@@ -425,7 +436,7 @@ static void Alert(NSString *message) {
     Send(doc.editor, SCI_SETCODEPAGE, SC_CP_UTF8);
     Send(doc.editor, SCI_SETEOLMODE, [self.preferences[@"defaultEOL"] integerValue]);
     Send(doc.editor, SCI_SETTABWIDTH, 4); Send(doc.editor, SCI_SETUSETABS, 0);
-    Send(doc.editor, SCI_SETMARGINTYPEN, 0, SC_MARGIN_NUMBER); Send(doc.editor, SCI_SETMARGINWIDTHN, 0, 56);
+    Send(doc.editor, SCI_SETMARGINTYPEN, 0, SC_MARGIN_NUMBER); Send(doc.editor, SCI_SETMARGINWIDTHN, 0, 0);
     Send(doc.editor, SCI_SETWRAPMODE, self.wrap ? SC_WRAP_WORD : SC_WRAP_NONE);
     Send(doc.editor, SCI_STYLESETFONT, STYLE_DEFAULT, reinterpret_cast<sptr_t>("JetBrains Mono"));
     Send(doc.editor, SCI_STYLESETSIZEFRACTIONAL, STYLE_DEFAULT, 1300);
@@ -492,6 +503,8 @@ static void Alert(NSString *message) {
 - (void)updateControls {
     NXDocument *doc = self.current;
     if (!doc) return;
+    for(NXDocument *document in self.documents)[self updateLineNumberMargin:document.primaryEditor];
+    if(self.secondaryVisible)[self updateLineNumberMargin:self.secondaryEditor];
     // Leave the active field editor alone while a font value is being entered.
     if (self.window.firstResponder == self.family.currentEditor || self.window.firstResponder == self.size.currentEditor) return;
     NoteX::SelectionFormat query;
@@ -709,13 +722,15 @@ static void Alert(NSString *message) {
 - (void)makeList:(id)sender {
     auto *view = self.current.editor;
     auto first = Send(view, SCI_LINEFROMPOSITION, Send(view, SCI_GETSELECTIONSTART));
-    auto last = Send(view, SCI_LINEFROMPOSITION, Send(view, SCI_GETSELECTIONEND));
+    auto end=Send(view,SCI_GETSELECTIONEND),start=Send(view,SCI_GETSELECTIONSTART);
+    auto last = Send(view, SCI_LINEFROMPOSITION, end);
+    if(end>start && last>first && end==Send(view,SCI_POSITIONFROMLINE,last))--last;
     Send(view, SCI_BEGINUNDOACTION);
     for (auto line = last; line >= first; --line) {
         NSString *prefix = [sender tag] ? [NSString stringWithFormat:@"%ld. ", (long)(line - first + 1)] : @"• ";
         Send(view, SCI_INSERTTEXT, Send(view, SCI_POSITIONFROMLINE, line), reinterpret_cast<sptr_t>(prefix.UTF8String));
     }
-    Send(view, SCI_ENDUNDOACTION); [self tick:nil];
+    Send(view, SCI_ENDUNDOACTION); [self.window makeFirstResponder:view]; [self tick:nil];
 }
 - (void)changeLanguage:(id)sender { self.current.customLanguage=self.language.selectedItem.representedObject ?: @"";if(!self.current.customLanguage.length)self.current.lexer = self.language.indexOfSelectedItem == 0 ? @"null" : self.language.titleOfSelectedItem; [self refreshEditorSettings];[self tick:nil]; }
 - (void)toggleWrap:(id)sender { self.wrap=!self.wrap; self.preferences[@"wrap"]=@(self.wrap); [self refreshEditorSettings]; [self tick:nil]; }
@@ -749,7 +764,7 @@ static void Alert(NSString *message) {
 }
 - (void)about:(id)sender {
     [NSApp orderFrontStandardAboutPanelWithOptions:@{NSAboutPanelOptionApplicationName:@"NoteX",
-        NSAboutPanelOptionApplicationVersion:@"1.4.0 — Native macOS Preview 3",
+        NSAboutPanelOptionApplicationVersion:@"1.4.1 — Native macOS Preview 4",
         NSAboutPanelOptionCredits:[[NSAttributedString alloc] initWithString:@"Native AppKit • Scintilla • Lexilla\nCopyright © 2026 Berk Kivircik and contributors.\nGNU General Public License version 3.\nSee Help for source, licensing, and preview limitations."]}];
 }
 - (void)showSession:(id)sender { [NSWorkspace.sharedWorkspace openURL:[NSURL fileURLWithPath:self.storage.directory]]; }

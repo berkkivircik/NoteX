@@ -73,13 +73,36 @@ static BOOL StringMacroMessage(unsigned message) {
 - (void)refreshFunctions {
     if (self.current && self.sidebarVisible) [self.workspace updateFunctions:Text(self.current.editor) path:self.current.path lexer:self.current.lexer];
 }
+// Modified 2026-11-01: panel commands toggle visibility and release sidebar space.
+- (void)applySidebarVisibility {
+    if(self.sidebarVisible){
+        if(self.workspace.view.superview!=self.split)[self.split addSubview:self.workspace.view positioned:NSWindowBelow relativeTo:self.editorSplit];
+        self.workspace.view.hidden=NO;
+        [self.split setHoldingPriority:NSLayoutPriorityDefaultHigh forSubviewAtIndex:0];
+        [self.split adjustSubviews];[self.split setPosition:MIN(285,self.split.bounds.size.width*0.35) ofDividerAtIndex:0];
+    }else{
+        [self.workspace.view removeFromSuperview];[self.split adjustSubviews];
+    }
+}
 - (void)showPanel:(id)sender {
-    self.sidebarVisible = YES; self.workspace.view.hidden = NO; [self.split setPosition:285 ofDividerAtIndex:0];
-    [self.workspace showPanel:[sender tag]]; [self refreshFunctions];
+    NSInteger panel=[sender tag];BOOL hide=self.sidebarVisible&&self.workspace.activePanel==panel;
+    self.sidebarVisible=!hide;if(!hide)[self.workspace showPanel:panel];
+    [self applySidebarVisibility];if(hide)[self.window makeFirstResponder:self.current.editor];[self tick:nil];
 }
 - (void)toggleSidebar:(id)sender {
-    self.sidebarVisible = !self.sidebarVisible; self.workspace.view.hidden = !self.sidebarVisible;
-    [self.split setPosition:self.sidebarVisible ? 285 : 0 ofDividerAtIndex:0]; [self refreshFunctions];
+    self.sidebarVisible=!self.sidebarVisible;[self applySidebarVisibility];
+    if(!self.sidebarVisible)[self.window makeFirstResponder:self.current.editor];[self tick:nil];
+}
+- (BOOL)validateMenuItem:(NSMenuItem *)item {
+    if(item.action==@selector(showPanel:))item.state=self.sidebarVisible&&self.workspace.activePanel==item.tag?NSControlStateValueOn:NSControlStateValueOff;
+    else if(item.action==@selector(toggleSidebar:))item.state=self.sidebarVisible?NSControlStateValueOn:NSControlStateValueOff;
+    return YES;
+}
+- (void)updateLineNumberMargin:(ScintillaView *)view {
+    if(!view)return;
+    NSString *digits=[NSString stringWithFormat:@"%ld",(long)MAX(99,Send(view,SCI_GETLINECOUNT))];
+    sptr_t width=[self.preferences[@"lineNumbers"] boolValue]?Send(view,SCI_TEXTWIDTH,STYLE_LINENUMBER,reinterpret_cast<sptr_t>(digits.UTF8String))+8:0;
+    if(Send(view,SCI_GETMARGINWIDTHN,0)!=width)Send(view,SCI_SETMARGINWIDTHN,0,width);
 }
 - (void)customizeMenus:(id)sender { [self.menuLayout customizeForWindow:self.window]; }
 - (void)resetMenus:(id)sender { [self.menuLayout reset]; }
@@ -99,7 +122,7 @@ static BOOL StringMacroMessage(unsigned message) {
     Send(doc.editor,SCI_SETCARETPERIOD,[self.preferences[@"blinkRate"] integerValue]);
     Send(doc.editor,SCI_SETEDGECOLUMN,[self.preferences[@"edgeColumn"] integerValue]);
     Send(doc.editor,SCI_SETEDGEMODE,[self.preferences[@"edgeColumn"] integerValue]>0?EDGE_LINE:EDGE_NONE);
-    Send(doc.editor, SCI_SETMARGINWIDTHN, 0, [self.preferences[@"lineNumbers"] boolValue] ? 56 : 0);
+    [self updateLineNumberMargin:doc.editor];
     Send(doc.editor, SCI_SETVIEWWS, [self.preferences[@"whitespace"] boolValue] ? SCWS_VISIBLEALWAYS : SCWS_INVISIBLE);
     Send(doc.editor, SCI_SETMULTIPLESELECTION, 1); Send(doc.editor, SCI_SETADDITIONALSELECTIONTYPING, 1); Send(doc.editor, SCI_SETMULTIPASTE, SC_MULTIPASTE_EACH);
     Send(doc.editor, SCI_SETMARGINTYPEN, 1, SC_MARGIN_SYMBOL); Send(doc.editor, SCI_SETMARGINMASKN, 1, 1);
