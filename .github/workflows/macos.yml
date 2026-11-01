@@ -1,0 +1,33 @@
+name: Native macOS
+on:
+  push:
+    branches: [native-macos]
+    paths: ['macOS/**', 'scintilla/**', 'lexilla/**', '.github/workflows/macos.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Build native Apple Silicon app
+        run: python3 macOS/build.py
+      - name: Native integration and recovery tests
+        run: python3 macOS/test.py
+      - name: Package application
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent dist/macOS/NoteX.app dist/NoteX-1.3.2-macos-arm64.zip
+          shasum -a 256 dist/NoteX-1.3.2-macos-arm64.zip > dist/SHA256SUMS-macos.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: NoteX-macos-arm64
+          path: |
+            dist/NoteX-1.3.2-macos-arm64.zip
+            dist/SHA256SUMS-macos.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: macos-test-results
+          path: dist/macOS/test-results.json

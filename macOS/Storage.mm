@@ -1,0 +1,147 @@
+// Copyright (C) 2026 Berk Kivircik. SPDX-License-Identifier: GPL-3.0-only
+// Native macOS storage, created 2026-11-01.
+#import "Storage.h"
+#import <CommonCrypto/CommonDigest.h>
+#include <fcntl.h>
+#include <sys/file.h>
+#include <unistd.h>
+#include <cerrno>
+
+NSError *NXError(NSString *message) {
+    return [NSError errorWithDomain:@"NoteX" code:1
+                           userInfo:@{NSLocalizedDescriptionKey: message}];
+}
+NSData *NXDigest(NSData *data) {
+    unsigned char digest[CC_SHA256_DIGEST_LENGTH];
+    CC_SHA256_CTX context;
+    CC_SHA256_Init(&context);
+    const auto *bytes = static_cast<const unsigned char *>(data.bytes);
+    for (NSUInteger offset = 0; offset < data.length;) {
+        auto count = static_cast<CC_LONG>(std::min<NSUInteger>(data.length - offset, 1 << 20));
+        CC_SHA256_Update(&context, bytes + offset, count);
+        offset += count;
+    }
+    CC_SHA256_Final(digest, &context);
+    return [NSData dataWithBytes:digest length:sizeof digest];
+}
+BOOL NXWrite(NSData *data, NSString *path, NSError **error) {
+    NSString *temp = [path stringByAppendingFormat:@".tmp-%@", NSUUID.UUID.UUIDString];
+    int fd = open(temp.fileSystemRepresentation, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    if (fd < 0) {
+        if (error) *error = [NSError errorWithDomain:NSPOSIXErrorDomain code:errno userInfo:nil];
+        return NO;
+    }
+    auto bytes = static_cast<const char *>(data.bytes);
+    NSUInteger offset = 0;
+    while (offset < data.length) {
+        ssize_t count = write(fd, bytes + offset, data.length - offset);
+        if (count < 0 && errno == EINTR) continue;
+        if (count <= 0) break;
+        offset += count;
+    }
+    bool ok = offset == data.length && fsync(fd) == 0;
+    int savedError = errno;
+    close(fd);
+    if (ok) { ok = rename(temp.fileSystemRepresentation, path.fileSystemRepresentation) == 0; savedError = errno; }
+    if (!ok) {
+        unlink(temp.fileSystemRepresentation);
+        if (error) *error = [NSError errorWithDomain:NSPOSIXErrorDomain code:savedError ?: EIO userInfo:nil];
+        return NO;
+    }
+    int directory = open(path.stringByDeletingLastPathComponent.fileSystemRepresentation, O_RDONLY);
+    if (directory >= 0) { fsync(directory); close(directory); }
+    return YES;
+}
+BOOL NXOwnedCompanion(NSData *bytes) {
+    return bytes.length >= 8 && (!memcmp(bytes.bytes, "NOTEXSC1", 8) || !memcmp(bytes.bytes, "NPPSIDE1", 8));
+}
+NSData *NXCompanion(NSData *text, const NoteX::State &state) {
+    NoteX::State compact;
+    for (auto run : state.runs) {
+        const auto &format = state.formats.at(run.style);
+        auto found = std::find(compact.formats.begin(), compact.formats.end(), format);
+        if (found == compact.formats.end()) {
+            run.style = static_cast<unsigned>(compact.formats.size());
+            compact.formats.push_back(format);
+        } else run.style = static_cast<unsigned>(found - compact.formats.begin());
+        compact.runs.push_back(run);
+    }
+    NSMutableData *data = [NSMutableData dataWithBytes:"NOTEXSC1" length:8];
+    [data appendData:NXDigest(text)];
+    auto encoded = NoteX::encode(compact);
+    [data appendBytes:encoded.data() length:encoded.size()];
+    return data;
+}
+BOOL NXReadCompanion(NSData *bytes, NSData *text, NoteX::State &state) {
+    if (bytes.length < 64 || bytes.length > 64 * 1024 * 1024 || !NXOwnedCompanion(bytes)) return NO;
+    if (memcmp(static_cast<const char *>(bytes.bytes) + 8, NXDigest(text).bytes, 32)) return NO;
+    return NoteX::decode(std::string(static_cast<const char *>(bytes.bytes) + 40, bytes.length - 40), state, text.length);
+}
+static NSDictionary *DecodeSession(NSData *data) {
+    if (!data) return nil;
+    id root = [NSPropertyListSerialization propertyListWithData:data options:NSPropertyListImmutable format:nil error:nil];
+    if (![root isKindOfClass:NSDictionary.class] || ![root[@"schema"] isEqual:@1] ||
+        ![root[@"documents"] isKindOfClass:NSArray.class] || ![root[@"selected"] isKindOfClass:NSNumber.class]) return nil;
+    NSArray *documents = root[@"documents"];
+    if (documents.count > 1000) return nil;
+    for (id doc in documents) {
+        if (![doc isKindOfClass:NSDictionary.class]) return nil;
+        for (NSString *key in @[@"id", @"path", @"title", @"lexer"])
+            if (![doc[key] isKindOfClass:NSString.class]) return nil;
+        for (NSString *key in @[@"text", @"format", @"diskHash"])
+            if (![doc[key] isKindOfClass:NSData.class]) return nil;
+        for (NSString *key in @[@"caret", @"anchor", @"firstLine", @"encoding", @"bom", @"dirty"])
+            if (![doc[key] isKindOfClass:NSNumber.class]) return nil;
+        NSData *text = doc[@"text"];
+        if (![[NSString alloc] initWithData:text encoding:NSUTF8StringEncoding]) return nil;
+        NoteX::State format;
+        if (!NXReadCompanion(doc[@"format"], text, format)) return nil;
+    }
+    return root;
+}
+@implementation NXStorage {
+    int _lock;
+    NSString *_directory;
+}
+- (instancetype)initWithDirectory:(NSString *)directory error:(NSError **)error {
+    self = [super init];
+    if (!self) return nil;
+    _lock = -1;
+    _directory = [directory copy];
+    if (![NSFileManager.defaultManager createDirectoryAtPath:directory withIntermediateDirectories:YES
+                                                attributes:@{NSFilePosixPermissions:@0700} error:error]) return nil;
+    NSString *lock = [directory stringByAppendingPathComponent:@"profile.lock"];
+    _lock = open(lock.fileSystemRepresentation, O_CREAT | O_RDWR, 0600);
+    if (_lock < 0 || flock(_lock, LOCK_EX | LOCK_NB) != 0) {
+        if (error) *error = NXError(@"This NoteX profile is already open, or its lock cannot be accessed.");
+        return nil;
+    }
+    return self;
+}
+- (NSString *)directory { return _directory; }
+- (void)dealloc { if (_lock >= 0) close(_lock); }
+- (NSDictionary *)load:(NSError **)error {
+    NSString *path = [_directory stringByAppendingPathComponent:@"session.plist"];
+    if (![NSFileManager.defaultManager fileExistsAtPath:path] &&
+        ![NSFileManager.defaultManager fileExistsAtPath:[path stringByAppendingString:@".previous"]]) return nil;
+    NSData *current = [NSData dataWithContentsOfFile:path];
+    NSDictionary *result = DecodeSession(current);
+    if (result) return result;
+    result = DecodeSession([NSData dataWithContentsOfFile:[path stringByAppendingString:@".previous"]]);
+    if (result) {
+        if (current && !NXWrite(current, [_directory stringByAppendingPathComponent:
+            [NSString stringWithFormat:@"recovery-%@.plist", NSUUID.UUID.UUIDString]], error)) return nil;
+        return result;
+    }
+    if (error) *error = NXError(@"The session and its previous snapshot could not be read. Your files were preserved. Back up the NoteX Application Support folder before repairing it.");
+    return nil;
+}
+- (BOOL)save:(NSDictionary *)session error:(NSError **)error {
+    NSData *data = [NSPropertyListSerialization dataWithPropertyList:session format:NSPropertyListBinaryFormat_v1_0 options:0 error:error];
+    if (!data || !DecodeSession(data)) { if (error && !*error) *error = NXError(@"The session could not be validated."); return NO; }
+    NSString *path = [_directory stringByAppendingPathComponent:@"session.plist"];
+    NSData *old = [NSData dataWithContentsOfFile:path];
+    if (DecodeSession(old) && !NXWrite(old, [path stringByAppendingString:@".previous"], error)) return NO;
+    return NXWrite(data, path, error);
+}
+@end
