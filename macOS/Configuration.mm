@@ -55,6 +55,7 @@ BOOL NXValidateConfiguration(id value) {
             }
         }
     }
+    if(value[@"runCommands"]){if(![value[@"runCommands"] isKindOfClass:NSArray.class]||[value[@"runCommands"] count]>100)return NO;NSMutableSet *names=[NSMutableSet new];for(id command in value[@"runCommands"]){if(![command isKindOfClass:NSDictionary.class]||![command[@"name"] isKindOfClass:NSString.class]||![command[@"command"] isKindOfClass:NSString.class]||![command[@"name"] length]||[command[@"name"] length]>100||![command[@"command"] length]||[command[@"command"] length]>65536||[names containsObject:[command[@"name"] lowercaseString]])return NO;[names addObject:[command[@"name"] lowercaseString]];}}
     if ([value[@"selectedTheme"] length] && ![[value[@"themes"] valueForKey:@"id"] containsObject:value[@"selectedTheme"]]) return NO;
     return YES;
 }

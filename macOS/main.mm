@@ -19,6 +19,7 @@
 #import "TabView.h"
 #import "Chooser.h"
 #import "DocumentMap.h"
+#import "RunTool.h"
 #import <CommonCrypto/CommonDigest.h>
 
 static sptr_t Send(ScintillaView *view, unsigned message, uptr_t w = 0, sptr_t l = 0) {
@@ -143,7 +144,13 @@ static void Alert(NSString *message) {
 @property NSMutableArray *clipboardHistory;
 @property NXMenuLayout *contextLayout;
 @property NSMenu *editorContextMenu;
+@property NXRunTool *runTool;
+@property sptr_t selectionAnchor;
+@property NSString *selectionDocument;
+@property NSStackView *toolbar;
+@property BOOL focusMode;
 - (NXDocument *)current;
+- (void)runToolCommand:(id)sender;
 - (NXDocument *)restoreDocumentRecord:(NSDictionary *)record;
 - (NXDocument *)newDocument:(id)sender;
 - (void)configureLexer:(NXDocument *)doc;
@@ -191,6 +198,7 @@ static void Alert(NSString *message) {
 - (NSDictionary *)userLanguage:(NXDocument *)document;
 - (void)applyUserTheme:(NXDocument *)document;
 - (void)findInFiles:(id)sender;
+- (BOOL)commitConfiguration:(NSDictionary *)configuration;
 - (NSArray *)searchScope:(NSInteger)scope;
 - (void)navigateResult:(NSDictionary *)result;
 - (NSString *)applySearchResults:(NSArray *)results;
@@ -276,6 +284,16 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
 - (void)customizeContextMenu:(id)sender;
 - (void)buildClipboardMenus;
 @end
+@interface NXApp (NavigationCommands)
+- (void)extendedSelection:(id)sender;
+- (void)selectedSearch:(id)sender;
+- (void)markCommand:(id)sender;
+- (void)displayCommand:(id)sender;
+- (void)changeHistory:(id)sender;
+- (void)directTab:(id)sender;
+- (void)sortTabs:(id)sender;
+- (void)buildNavigationMenus;
+@end
 @implementation NXApp
 - (NXDocument *)current {
     if(self.secondaryVisible && self.secondaryFocused && self.secondaryDocument) return self.secondaryDocument;
@@ -358,6 +376,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
     [self buildLanguageMenu];
     [self buildSessionMenus];
     [self buildClipboardMenus];
+    [self buildNavigationMenus];
 }
 - (void)buildWindow {
     self.window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 1120, 740)
@@ -400,6 +419,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
         [self button:@"S̶" action:@selector(toggleFormat:) tag:NoteX::Strike],
         [self button:@"Color" action:@selector(pickColor:) tag:NoteX::Fore],
         [self button:@"Highlight" action:@selector(pickColor:) tag:NoteX::Highlight], self.bulletListButton, self.numberedListButton, self.language]];
+    self.toolbar=toolbar;
     toolbar.spacing = 6;
     toolbar.edgeInsets = NSEdgeInsetsMake(8, 10, 8, 10);
     self.findText = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 0, 180, 24)];
@@ -453,7 +473,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
         NSURL *url = [NSBundle.mainBundle.resourceURL URLByAppendingPathComponent:[@"Fonts" stringByAppendingPathComponent:font]];
         CTFontManagerRegisterFontsForURL((__bridge CFURLRef)url, kCTFontManagerScopeProcess, nil);
     }
-    self.documents = [NSMutableArray new];
+    self.documents = [NSMutableArray new];self.selectionAnchor=-1;
     self.closedPaths=[NSMutableArray new];self.clipboardHistory=[NSMutableArray new];
     self.searchOptions=[@{@"matchCase":@NO,@"wholeWord":@NO,@"regex":@NO,@"engine":@"boost",@"selection":@NO} mutableCopy];
     self.dark = YES; self.wrap = YES; self.restoring = YES;
@@ -549,6 +569,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
     ((NXEditor *)doc.editor).editorContextMenu=^NSMenu *{return owner.editorContextMenu;};
     ((NXEditor *)doc.editor).newline = ^BOOL(ScintillaView *view) { return [owner insertEditorNewline:view]; };
     doc.editor.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    Send(doc.editor,SCI_SETCHANGEHISTORY,SC_CHANGE_HISTORY_ENABLED|SC_CHANGE_HISTORY_MARKERS);
     Send(doc.editor, SCI_SETCODEPAGE, SC_CP_UTF8);
     Send(doc.editor, SCI_SETEOLMODE, [self.preferences[@"defaultEOL"] integerValue]);
     Send(doc.editor,SCI_SETMULTIPLESELECTION,1);Send(doc.editor,SCI_SETADDITIONALSELECTIONTYPING,1);Send(doc.editor,SCI_SETMULTIPASTE,SC_MULTIPASTE_EACH);
@@ -874,6 +895,12 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
         NSAboutPanelOptionApplicationVersion:@"1.4.1 — Native macOS Preview 4",
         NSAboutPanelOptionCredits:[[NSAttributedString alloc] initWithString:@"Native AppKit • Scintilla • Lexilla\nCopyright © 2026 Berk Kivircik and contributors.\nGNU General Public License version 3.\nSee Help for source, licensing, and preview limitations."]}];
 }
+- (void)runToolCommand:(id)sender {
+    if(!self.runTool){self.runTool=[NXRunTool new];self.runTool.commands=self.configuration[@"runCommands"] ?: @[];__weak NXApp *owner=self;
+        self.runTool.saveCommands=^BOOL(NSArray *commands){NSMutableDictionary *configuration=[owner.configuration mutableCopy];configuration[@"runCommands"]=commands;return [owner commitConfiguration:configuration];};
+        self.runTool.documentEnvironment=^NSDictionary *{NXApp *app=owner;NSString *selection=app.current.editor.selectedString;return @{@"NOTEX_FILE":app.current.path ?: @"",@"NOTEX_DIRECTORY":app.current.path.length?app.current.path.stringByDeletingLastPathComponent:NSHomeDirectory(),@"NOTEX_SELECTION":selection.length<=65536?selection:@"",@"NOTEX_LINE":[NSString stringWithFormat:@"%ld",(long)Send(app.current.editor,SCI_LINEFROMPOSITION,Send(app.current.editor,SCI_GETCURRENTPOS))+1]};};
+    }[self.runTool showForWindow:self.window];
+}
 - (void)showSession:(id)sender { [NSWorkspace.sharedWorkspace openURL:[NSURL fileURLWithPath:self.storage.directory]]; }
 - (void)guide:(id)sender { [NSWorkspace.sharedWorkspace openURL:[NSBundle.mainBundle URLForResource:@"README" withExtension:@"md"]]; }
 - (void)source:(id)sender { [NSWorkspace.sharedWorkspace openURL:[NSURL URLWithString:@"https://github.com/berkkivircik/NoteX"]]; }
@@ -887,6 +914,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
 #include "TextCommands.inc"
 #include "ClipboardCommands.inc"
 #include "SearchCommands.inc"
+#include "NavigationCommands.inc"
 #include "Editing.inc"
 #include "Features.inc"
 #include "Workbench.inc"
