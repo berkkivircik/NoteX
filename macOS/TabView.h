@@ -12,4 +12,6 @@
 @property NSView *overview;
 @property NSSet *hiddenDocuments;
 - (void)refreshTabs;
+- (void)previous:(id)sender;
+- (void)next:(id)sender;
 @end

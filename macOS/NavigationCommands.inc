@@ -39,7 +39,7 @@
     else if(action==21)Send(view,SCI_SHOWLINES,0,Send(view,SCI_GETLINECOUNT)-1);
     else if(action==22||action==23)Send(view,SCI_FOLDLINE,Send(view,SCI_LINEFROMPOSITION,Send(view,SCI_GETCURRENTPOS)),action==22?SC_FOLDACTION_CONTRACT:SC_FOLDACTION_EXPAND);
     else if(action==30&&self.secondaryVisible){self.secondaryFocused=!self.secondaryFocused;for(NXDocument *doc in self.documents)doc.activeEditor=nil;if(self.secondaryFocused)self.secondaryDocument.activeEditor=self.secondaryEditor;[self.window makeFirstResponder:self.current.editor];}
-    else if(action==31&&self.secondaryVisible){Send(self.secondaryEditor,SCI_SETZOOM,Send(self.current.editor,SCI_GETZOOM));Send(self.tabs.selectedTabViewItem.view,SCI_SETZOOM,Send(self.current.editor,SCI_GETZOOM));}
+    else if(action==31&&self.secondaryVisible){Send(self.secondaryEditor,SCI_SETZOOM,Send(self.current.editor,SCI_GETZOOM));Send((ScintillaView *)self.tabs.selectedTabViewItem.view,SCI_SETZOOM,Send(self.current.editor,SCI_GETZOOM));}
     [self tick:nil];
 }
 - (void)changeHistory:(id)sender {

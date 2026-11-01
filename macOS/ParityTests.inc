@@ -1,5 +1,6 @@
 // Copyright (C) 2026 Berk Kivircik. SPDX-License-Identifier: GPL-3.0-only
 // Behavioral regression tests, added 2026-11-01.
+static NSData *Sample();
 @implementation NXApp (ParityTests)
 - (void)parityTests {
     if(self.secondaryVisible)[self closeSecondary:nil];NXDocument *doc=[self newDocument:nil];ScintillaView *view=doc.editor;

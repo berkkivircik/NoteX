@@ -26,5 +26,5 @@ NSInteger NXChoose(NSString *title, NSArray<NSString *> *items, NSWindow *parent
     NSScrollView *scroll=[[NSScrollView alloc]initWithFrame:NSMakeRect(16,64,588,296)];scroll.documentView=owner.table;scroll.hasVerticalScroller=YES;[owner.window.contentView addSubview:scroll];
     NSButton *cancel=[NSButton buttonWithTitle:@"Cancel" target:owner action:@selector(cancel:)];cancel.frame=NSMakeRect(400,16,96,32);cancel.keyEquivalent=@"\e";[owner.window.contentView addSubview:cancel];
     NSButton *open=[NSButton buttonWithTitle:@"Choose" target:owner action:@selector(accept:)];open.frame=NSMakeRect(508,16,96,32);open.keyEquivalent=@"\r";[owner.window.contentView addSubview:open];
-    [owner controlTextDidChange:nil];[owner.window center];[owner.window makeFirstResponder:owner.search];[NSApp runModalForWindow:owner.window];return owner.result;
+    [owner controlTextDidChange:[NSNotification notificationWithName:NSControlTextDidChangeNotification object:owner.search]];[owner.window center];[owner.window makeFirstResponder:owner.search];[NSApp runModalForWindow:owner.window];return owner.result;
 }

@@ -548,7 +548,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
     self.recordingActions = [NSMutableArray new];
     self.configuration=[(session[@"configuration"] ?: NXDefaultConfiguration()) mutableCopy];
     self.syntaxHashes=[NSMutableDictionary new];
-    NSDictionary *extra=@{@"caretWidth":@1,@"blinkRate":@500,@"edgeColumn":@0,@"snapshotSeconds":@1,@"defaultEncoding":@0,@"defaultEOL":@(SC_EOL_LF),@"indentGuides":@YES,@"showEOL":@NO,@"highlightLine":@NO,@"wrap":@(self.wrap),@"dark":@(self.dark)};
+    NSDictionary *extra=@{@"autoPairs":@NO,@"functionCompletion":@NO,@"parameterHints":@NO,@"nonPrinting":@NO,@"caretWidth":@1,@"blinkRate":@500,@"edgeColumn":@0,@"snapshotSeconds":@1,@"defaultEncoding":@0,@"defaultEOL":@(SC_EOL_LF),@"indentGuides":@YES,@"showEOL":@NO,@"highlightLine":@NO,@"wrap":@(self.wrap),@"dark":@(self.dark)};
     for(NSString *key in extra)if(!self.preferences[key])self.preferences[key]=extra[key];
     self.sidebarVisible = session[@"sidebarVisible"] ? [session[@"sidebarVisible"] boolValue] : NO;
     self.workspace = [[NXWorkspace alloc] initWithState:[session[@"workspace"] isKindOfClass:NSDictionary.class] ? session[@"workspace"] : @{}];
@@ -693,7 +693,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
     }
     if(notification->nmhdr.hwndFrom!=reinterpret_cast<void *>(Send(self.current.editor,SCI_GETDIRECTPOINTER)))return;
     if(notification->nmhdr.code==SCN_UPDATEUI && self.synchronizedScroll && self.secondaryVisible && !self.syncingScroll){
-        self.syncingScroll=YES;ScintillaView *other=self.secondaryFocused?self.tabs.selectedTabViewItem.view:self.secondaryEditor;
+        self.syncingScroll=YES;ScintillaView *other=self.secondaryFocused?(ScintillaView *)self.tabs.selectedTabViewItem.view:self.secondaryEditor;
         if(self.syncVertical)Send(other,SCI_SETFIRSTVISIBLELINE,Send(self.current.editor,SCI_GETFIRSTVISIBLELINE));if(self.syncHorizontal)Send(other,SCI_SETXOFFSET,Send(self.current.editor,SCI_GETXOFFSET));self.syncingScroll=NO;
     }
     if(notification->nmhdr.code==SCN_MODIFIED && (notification->modificationType & (SC_MOD_INSERTTEXT|SC_MOD_DELETETEXT))){[NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(updateUserSyntax) object:nil];[self performSelector:@selector(updateUserSyntax) withObject:nil afterDelay:0.15];}
@@ -937,7 +937,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
     self.preferences[@"dark"]=@(self.dark); [self refreshEditorSettings]; [self tick:nil];
 }
 - (void)editorCommand:(id)sender { Send(self.current.editor, static_cast<unsigned>([sender tag])); }
-- (void)nextTab:(id)sender {[(NXTabView *)self.tabs performSelector:[sender tag]<0?@selector(previous:):@selector(next:) withObject:sender];}
+- (void)nextTab:(id)sender {if([sender tag]<0)[(NXTabView *)self.tabs previous:sender];else[(NXTabView *)self.tabs next:sender];}
 - (void)showFind:(id)sender { self.findBar.hidden = NO; [self.window makeFirstResponder:self.findText]; }
 - (void)hideFind:(id)sender { self.findBar.hidden = YES; [self.window makeFirstResponder:self.current.editor]; }
 - (void)findNext:(id)sender { [self searchNavigate:sender]; }
