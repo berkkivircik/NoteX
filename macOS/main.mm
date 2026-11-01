@@ -54,6 +54,7 @@ static void Alert(NSString *message) {
 @property ScintillaView *activeEditor;
 @property(nonatomic, readonly) ScintillaView *primaryEditor;
 @property NSString *customLanguage;
+@property NSString *builtinLanguage;
 @property NSTabViewItem *tab;
 @property NSString *identifier;
 @property NSString *path;
@@ -65,6 +66,7 @@ static void Alert(NSString *message) {
 @property BOOL restoredDirty;
 @property BOOL pinned;
 @property NSInteger tabColor;
+@property BOOL monitoring;
 - (BOOL)dirty;
 - (NSDictionary *)record;
 @end
@@ -78,7 +80,7 @@ static void Alert(NSString *message) {
     NSMutableArray *bookmarks = [NSMutableArray new];
     for (sptr_t line = Send(self.primaryEditor, SCI_MARKERNEXT, 0, 1); line >= 0; line = Send(self.primaryEditor, SCI_MARKERNEXT, line + 1, 1)) [bookmarks addObject:@(line)];
     return @{@"id":self.identifier, @"path":self.path, @"title":self.title, @"lexer":self.lexer,
-             @"customLanguage":self.customLanguage ?: @"", @"pinned":@(self.pinned), @"tabColor":@(self.tabColor),
+             @"builtinLanguage":self.builtinLanguage ?: @"", @"customLanguage":self.customLanguage ?: @"", @"pinned":@(self.pinned), @"tabColor":@(self.tabColor),
              @"bookmarks":bookmarks, @"eol":@(Send(self.primaryEditor, SCI_GETEOLMODE)),
              @"text":text, @"format":NXCompanion(text, State(self.primaryEditor)), @"diskHash":self.diskHash,
              @"encoding":@(self.encoding), @"bom":@(self.bom), @"dirty":@(self.dirty),
@@ -135,7 +137,9 @@ static void Alert(NSString *message) {
 @property NSMutableDictionary *searchOptions;
 @property NSDictionary *searchScopeRecord;
 @property NSNumber *lastZeroMatch;
+@property NSStringEncoding openingEncoding;
 - (NXDocument *)current;
+- (NXDocument *)restoreDocumentRecord:(NSDictionary *)record;
 - (NXDocument *)newDocument:(id)sender;
 - (void)configureLexer:(NXDocument *)doc;
 - (BOOL)snapshot:(NSError **)error;
@@ -240,6 +244,23 @@ static void Alert(NSString *message) {
 - (void)matchingBrace:(id)sender;
 - (void)buildSearchMenus;
 @end
+@interface NXApp (EncodingCommands)
+- (void)legacyEncoding:(id)sender;
+- (void)buildEncodingMenus;
+@end
+static NSArray *NXLanguageCatalog(void);
+static NSDictionary *NXBuiltIn(NSString *identifier);
+@interface NXApp (LanguageCatalog)
+- (void)chooseBuiltinLanguage:(id)sender;
+- (void)buildLanguageMenu;
+@end
+@interface NXApp (SessionCommands)
+- (void)sessionFile:(id)sender;
+- (void)trashDocument:(id)sender;
+- (void)toggleMonitoring:(id)sender;
+- (void)checkMonitoredFiles;
+- (void)buildSessionMenus;
+@end
 @implementation NXApp
 - (NXDocument *)current {
     if(self.secondaryVisible && self.secondaryFocused && self.secondaryDocument) return self.secondaryDocument;
@@ -318,6 +339,9 @@ static void Alert(NSString *message) {
     [self buildWorkbenchMenus];
     [self buildCommandMenus];
     [self buildSearchMenus];
+    [self buildEncodingMenus];
+    [self buildLanguageMenu];
+    [self buildSessionMenus];
 }
 - (void)buildWindow {
     self.window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 1120, 740)
@@ -447,27 +471,7 @@ static void Alert(NSString *message) {
     [self.menuLayout apply];
     [self buildWindow];
     self.window.appearance = [NSAppearance appearanceNamed:self.dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
-    for (NSDictionary *record in session[@"documents"]) {
-        NXDocument *doc = [self newDocument:nil];
-        doc.identifier = record[@"id"]; doc.path = NXCanonicalPath(record[@"path"]); doc.title = record[@"title"];
-        doc.diskHash = record[@"diskHash"]; doc.encoding = [record[@"encoding"] unsignedIntegerValue]; doc.bom = [record[@"bom"] boolValue];
-        doc.lexer = record[@"lexer"];
-        doc.customLanguage=record[@"customLanguage"] ?: @"";doc.pinned=[record[@"pinned"] boolValue];doc.tabColor=[record[@"tabColor"] integerValue];
-        SetText(doc.editor, record[@"text"]);
-        if ([record[@"eol"] isKindOfClass:NSNumber.class]) Send(doc.editor, SCI_SETEOLMODE, [record[@"eol"] integerValue]);
-        for (NSNumber *line in record[@"bookmarks"]) if (line.longLongValue >= 0 && line.longLongValue < Send(doc.editor, SCI_GETLINECOUNT)) Send(doc.editor, SCI_MARKERADD, line.unsignedLongLongValue, 0);
-        NoteX::State state;
-        NXReadCompanion(record[@"format"], record[@"text"], state);
-        Restore(doc.editor, std::move(state));
-        Send(doc.editor, SCI_EMPTYUNDOBUFFER); Send(doc.editor, SCI_SETSAVEPOINT);
-        doc.restoredDirty = [record[@"dirty"] boolValue];
-        auto length = Send(doc.editor, SCI_GETLENGTH);
-        Send(doc.editor, SCI_SETSEL, std::clamp<sptr_t>([record[@"anchor"] longLongValue], 0, length),
-             std::clamp<sptr_t>([record[@"caret"] longLongValue], 0, length));
-        Send(doc.editor, SCI_SETFIRSTVISIBLELINE, std::max<long long>(0, [record[@"firstLine"] longLongValue]));
-        Send(doc.primaryEditor,SCI_SETZOOM,[record[@"zoom"] integerValue]); Send(doc.primaryEditor,SCI_SETXOFFSET,[record[@"xOffset"] integerValue]);
-        [self configureLexer:doc];
-    }
+    for (NSDictionary *record in session[@"documents"]) [self restoreDocumentRecord:record];
     if (!self.documents.count) [self newDocument:nil];
     NSInteger selected = [session[@"selected"] integerValue];
     if (selected >= 0 && selected < (NSInteger)self.documents.count) [self.tabs selectTabViewItemAtIndex:selected];
@@ -491,6 +495,28 @@ static void Alert(NSString *message) {
         NSString *mode = arguments[index + 1];
         dispatch_async(dispatch_get_main_queue(), ^{ [self selfTest:mode]; });
     }
+}
+- (NXDocument *)restoreDocumentRecord:(NSDictionary *)record {
+        NXDocument *doc = [self newDocument:nil];
+        doc.identifier = record[@"id"]; doc.path = NXCanonicalPath(record[@"path"]); doc.title = record[@"title"];
+        doc.diskHash = record[@"diskHash"]; doc.encoding = [record[@"encoding"] unsignedIntegerValue]; doc.bom = [record[@"bom"] boolValue];
+        doc.lexer = record[@"lexer"];
+        doc.customLanguage=record[@"customLanguage"] ?: @"";doc.builtinLanguage=record[@"builtinLanguage"] ?: @"";doc.pinned=[record[@"pinned"] boolValue];doc.tabColor=[record[@"tabColor"] integerValue];
+        SetText(doc.editor, record[@"text"]);
+        if ([record[@"eol"] isKindOfClass:NSNumber.class]) Send(doc.editor, SCI_SETEOLMODE, [record[@"eol"] integerValue]);
+        for (NSNumber *line in record[@"bookmarks"]) if (line.longLongValue >= 0 && line.longLongValue < Send(doc.editor, SCI_GETLINECOUNT)) Send(doc.editor, SCI_MARKERADD, line.unsignedLongLongValue, 0);
+        NoteX::State state;
+        NXReadCompanion(record[@"format"], record[@"text"], state);
+        Restore(doc.editor, std::move(state));
+        Send(doc.editor, SCI_EMPTYUNDOBUFFER); Send(doc.editor, SCI_SETSAVEPOINT);
+        doc.restoredDirty = [record[@"dirty"] boolValue];
+        auto length = Send(doc.editor, SCI_GETLENGTH);
+        Send(doc.editor, SCI_SETSEL, std::clamp<sptr_t>([record[@"anchor"] longLongValue], 0, length),
+             std::clamp<sptr_t>([record[@"caret"] longLongValue], 0, length));
+        Send(doc.editor, SCI_SETFIRSTVISIBLELINE, std::max<long long>(0, [record[@"firstLine"] longLongValue]));
+        Send(doc.primaryEditor,SCI_SETZOOM,[record[@"zoom"] integerValue]); Send(doc.primaryEditor,SCI_SETXOFFSET,[record[@"xOffset"] integerValue]);
+        [self configureLexer:doc];
+    return doc;
 }
 - (NXDocument *)newDocument:(id)sender {
     NXDocument *doc = [NXDocument new];
@@ -551,6 +577,7 @@ static void Alert(NSString *message) {
         Send(doc.editor, SCI_STYLESETFORE, 5, self.dark ? 0xe6bfa0 : 0xa04060);
         Send(doc.editor, SCI_STYLESETFORE, 6, self.dark ? 0x9ac8df : 0x226699);
     }
+    NSDictionary *builtIn=NXBuiltIn(doc.builtinLanguage);NSUInteger keyword=0;for(NSString *words in builtIn[@"keywords"])Send(doc.editor,SCI_SETKEYWORDS,keyword++,reinterpret_cast<sptr_t>(words.UTF8String));
     Send(doc.editor, SCI_COLOURISE, 0, -1);
     [self applyUserTheme:doc];
     [self.syntaxHashes removeObjectForKey:doc.identifier];
@@ -589,7 +616,7 @@ static void Alert(NSString *message) {
     if (!self.snapshotFailed) self.status.stringValue = [NSString stringWithFormat:@"  Line %ld   Column %ld   %@   %lu characters",
         (long)Send(doc.editor, SCI_LINEFROMPOSITION, Send(doc.editor, SCI_GETCURRENTPOS)) + 1,
         (long)Send(doc.editor, SCI_GETCOLUMN, Send(doc.editor, SCI_GETCURRENTPOS)) + 1,
-        doc.encoding == NSUTF8StringEncoding ? @"UTF-8" : @"UTF-16", (unsigned long)doc.editor.string.length];
+        [NSString localizedNameOfStringEncoding:doc.encoding], (unsigned long)doc.editor.string.length];
 }
 - (void)tabView:(NSTabView *)tabView didSelectTabViewItem:(NSTabViewItem *)tabViewItem {
     self.secondaryFocused=NO;for(NXDocument *doc in self.documents)doc.activeEditor=nil;
@@ -612,6 +639,7 @@ static void Alert(NSString *message) {
     return YES;
 }
 - (void)tick:(id)sender {
+    [self checkMonitoredFiles];
     [self updateSecondaryChoices];
     [(NXTabView *)self.tabs refreshTabs];
     NSError *error = nil;
@@ -652,9 +680,10 @@ static void Alert(NSString *message) {
     if (disk.length >= 3 && !memcmp(bytes, "\xef\xbb\xbf", 3)) { content = [disk subdataWithRange:NSMakeRange(3, disk.length - 3)]; bom = YES; }
     else if (disk.length >= 2 && bytes[0] == 0xff && bytes[1] == 0xfe) { encoding = NSUTF16LittleEndianStringEncoding; bom = YES; content = [disk subdataWithRange:NSMakeRange(2, disk.length - 2)]; }
     else if (disk.length >= 2 && bytes[0] == 0xfe && bytes[1] == 0xff) { encoding = NSUTF16BigEndianStringEncoding; bom = YES; content = [disk subdataWithRange:NSMakeRange(2, disk.length - 2)]; }
+    if(self.openingEncoding&&!bom)encoding=self.openingEncoding;
     NSString *string = [[NSString alloc] initWithData:content encoding:encoding];
     if (!string || [string rangeOfString:[NSString stringWithFormat:@"%C", (unichar)0]].location != NSNotFound) {
-        if (error) *error = NXError(@"This file is not UTF-8 or BOM-marked UTF-16 text. It has not been modified."); return NO;
+        if (error) *error = NXError(@"This file could not be decoded as text. Use Encoding > Open with Legacy Encoding to select its encoding. It has not been modified."); return NO;
     }
     NXDocument *doc = [self newDocument:nil];
     doc.path = path; doc.title = path.lastPathComponent; doc.encoding = encoding; doc.bom = bom; doc.diskHash = NXDigest(disk);
@@ -662,6 +691,7 @@ static void Alert(NSString *message) {
     Send(doc.editor, SCI_SETEOLMODE, [string containsString:@"\r\n"] ? SC_EOL_CRLF : [string containsString:@"\r"] && ![string containsString:@"\n"] ? SC_EOL_CR : SC_EOL_LF);
     NSDictionary *lexers = @{@"c":@"cpp", @"h":@"cpp", @"cc":@"cpp", @"cpp":@"cpp", @"hpp":@"cpp", @"m":@"cpp", @"mm":@"cpp", @"js":@"cpp", @"ts":@"cpp", @"java":@"cpp", @"py":@"python", @"json":@"json", @"xml":@"xml", @"html":@"html", @"css":@"css", @"md":@"markdown", @"sh":@"bash", @"sql":@"sql", @"yaml":@"yaml", @"yml":@"yaml", @"swift":@"swift", @"rs":@"rust"};
     doc.lexer = lexers[path.pathExtension.lowercaseString] ?: @"null";
+    for(NSDictionary *language in NXLanguageCatalog())if([language[@"extensions"] containsObject:path.pathExtension.lowercaseString]){doc.builtinLanguage=language[@"id"];doc.lexer=language[@"lexer"];break;}
     doc.customLanguage=NXLanguageForPath(self.configuration,path)[@"id"] ?: @"";
     [self configureLexer:doc];
     NSString *sidecar = [path stringByAppendingString:@".notex"];
@@ -795,7 +825,7 @@ static void Alert(NSString *message) {
     [self apply:format fields:self.colorField];
 }
 - (void)makeList:(id)sender { [self toggleList:[sender tag] != 0]; }
-- (void)changeLanguage:(id)sender { self.current.customLanguage=self.language.selectedItem.representedObject ?: @"";if(!self.current.customLanguage.length)self.current.lexer = self.language.indexOfSelectedItem == 0 ? @"null" : self.language.titleOfSelectedItem; [self refreshEditorSettings];[self tick:nil]; }
+- (void)changeLanguage:(id)sender { self.current.builtinLanguage=@""; self.current.customLanguage=self.language.selectedItem.representedObject ?: @"";if(!self.current.customLanguage.length)self.current.lexer = self.language.indexOfSelectedItem == 0 ? @"null" : self.language.titleOfSelectedItem; [self refreshEditorSettings];[self tick:nil]; }
 - (void)toggleWrap:(id)sender { self.wrap=!self.wrap; self.preferences[@"wrap"]=@(self.wrap); [self refreshEditorSettings]; [self tick:nil]; }
 - (void)toggleDark:(id)sender {
     self.dark = !self.dark;
@@ -830,6 +860,9 @@ static void Alert(NSString *message) {
 
 #include "DocumentCommands.inc"
 #include "CommandMenus.inc"
+#include "LanguageCatalog.inc"
+#include "SessionCommands.inc"
+#include "EncodingCommands.inc"
 #include "TextCommands.inc"
 #include "SearchCommands.inc"
 #include "Editing.inc"

@@ -83,7 +83,7 @@ BOOL NXReadCompanion(NSData *bytes, NSData *text, NoteX::State &state) {
     if (memcmp(static_cast<const char *>(bytes.bytes) + 8, NXDigest(text).bytes, 32)) return NO;
     return NoteX::decode(std::string(static_cast<const char *>(bytes.bytes) + 40, bytes.length - 40), state, text.length);
 }
-static NSDictionary *DecodeSession(NSData *data) {
+NSDictionary *NXDecodeSession(NSData *data) {
     if (!data) return nil;
     id root = [NSPropertyListSerialization propertyListWithData:data options:NSPropertyListImmutable format:nil error:nil];
     if (![root isKindOfClass:NSDictionary.class] || ![root[@"schema"] isEqual:@1] ||
@@ -145,6 +145,7 @@ static NSDictionary *DecodeSession(NSData *data) {
     }
     for (id doc in documents) {
         if (![doc isKindOfClass:NSDictionary.class]) return nil;
+        if(doc[@"builtinLanguage"]&&![doc[@"builtinLanguage"] isKindOfClass:NSString.class])return nil;
         if(doc[@"customLanguage"]&&![doc[@"customLanguage"] isKindOfClass:NSString.class])return nil;
         for(NSString *key in @[@"zoom",@"xOffset",@"pinned",@"tabColor"])if(doc[key]&&![doc[key] isKindOfClass:NSNumber.class])return nil;
         if (doc[@"eol"] && (![doc[@"eol"] isKindOfClass:NSNumber.class] || [doc[@"eol"] integerValue] < 0 || [doc[@"eol"] integerValue] > 2)) return nil;
@@ -193,9 +194,9 @@ static NSDictionary *DecodeSession(NSData *data) {
     if (![NSFileManager.defaultManager fileExistsAtPath:path] &&
         ![NSFileManager.defaultManager fileExistsAtPath:[path stringByAppendingString:@".previous"]]) return nil;
     NSData *current = [NSData dataWithContentsOfFile:path];
-    NSDictionary *result = DecodeSession(current);
+    NSDictionary *result = NXDecodeSession(current);
     if (result) return result;
-    result = DecodeSession([NSData dataWithContentsOfFile:[path stringByAppendingString:@".previous"]]);
+    result = NXDecodeSession([NSData dataWithContentsOfFile:[path stringByAppendingString:@".previous"]]);
     if (result) {
         if (current && !NXWrite(current, [_directory stringByAppendingPathComponent:
             [NSString stringWithFormat:@"recovery-%@.plist", NSUUID.UUID.UUIDString]], error)) return nil;
@@ -207,10 +208,10 @@ static NSDictionary *DecodeSession(NSData *data) {
 }
 - (BOOL)save:(NSDictionary *)session error:(NSError **)error {
     NSData *data = [NSPropertyListSerialization dataWithPropertyList:session format:NSPropertyListBinaryFormat_v1_0 options:0 error:error];
-    if (!data || !DecodeSession(data)) { if (error && !*error) *error = NXError(@"The session could not be validated."); return NO; }
+    if (!data || !NXDecodeSession(data)) { if (error && !*error) *error = NXError(@"The session could not be validated."); return NO; }
     NSString *path = [_directory stringByAppendingPathComponent:@"session.plist"];
     NSData *old = [NSData dataWithContentsOfFile:path];
-    if (DecodeSession(old) && !NXWrite(old, [path stringByAppendingString:@".previous"], error)) return NO;
+    if (NXDecodeSession(old) && !NXWrite(old, [path stringByAppendingString:@".previous"], error)) return NO;
     return NXWrite(data, path, error);
 }
 @end

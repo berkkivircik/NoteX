@@ -44,7 +44,7 @@ static NSString *NXEOL(ScintillaView *view) {auto mode=Send(view,SCI_GETEOLMODE)
 }
 - (void)commentOperation:(id)sender {
     NXDocument *doc=self.current;ScintillaView *view=doc.editor;if(Send(view,SCI_GETREADONLY))return;
-    NSDictionary *language=[self userLanguage:doc];NSString *line=language[@"lineComment"],*open=language[@"blockOpen"],*close=language[@"blockClose"];
+    NSDictionary *language=[self userLanguage:doc] ?: NXBuiltIn(doc.builtinLanguage);NSString *line=language[@"lineComment"],*open=language[@"blockOpen"],*close=language[@"blockClose"];
     if(!language){if([@[@"python",@"bash",@"ruby",@"perl",@"yaml",@"makefile",@"r"] containsObject:doc.lexer])line=@"#";else if([@[@"sql",@"lua",@"haskell"] containsObject:doc.lexer])line=@"--";else if([@[@"html",@"xml"] containsObject:doc.lexer]){open=@"<!--";close=@"-->";line=@"";}else {line=@"//";open=@"/*";close=@"*/";}}
     if([sender tag]){if(!open.length||!close.length){Alert(@"This language has no block-comment delimiters.");return;}NSString *selected=view.selectedString;BOOL remove=[selected hasPrefix:open]&&[selected hasSuffix:close]&&selected.length>=open.length+close.length;NSString *value=remove?[selected substringWithRange:NSMakeRange(open.length,selected.length-open.length-close.length)]:[NSString stringWithFormat:@"%@%@%@",open,selected,close];NXReplaceRange(view,Send(view,SCI_GETSELECTIONSTART),Send(view,SCI_GETSELECTIONEND),value);}
     else {if(!line.length){Alert(@"This language has no line-comment delimiter.");return;}

@@ -3,6 +3,7 @@
 #import <Foundation/Foundation.h>
 #include "NoteXFormat.h"
 
+NSDictionary *NXDecodeSession(NSData *data);
 NSError *NXError(NSString *message);
 NSData *NXDigest(NSData *data);
 NSString *NXCanonicalPath(NSString *path);

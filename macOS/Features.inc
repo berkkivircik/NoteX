@@ -71,7 +71,7 @@ static BOOL StringMacroMessage(unsigned message) {
     [self item:macro title:@"Run or Manage Saved Macros…" action:@selector(manageMacros:) key:@"" tag:0];
 }
 - (void)refreshFunctions {
-    if (self.current && self.sidebarVisible) [self.workspace updateFunctions:Text(self.current.editor) path:self.current.path lexer:self.current.lexer];
+    if (self.current && self.sidebarVisible) [self.workspace updateFunctions:Text(self.current.editor) path:self.current.path lexer:self.current.builtinLanguage.length?self.current.builtinLanguage:self.current.lexer];
 }
 // Modified 2026-11-01: panel commands toggle visibility and release sidebar space.
 - (void)applySidebarVisibility {

@@ -5,6 +5,8 @@ Copyright (C) 2026 Berk Kivircik. SPDX-License-Identifier: GPL-3.0-only
 """
 import concurrent.futures
 import os
+import json
+from languages import catalog
 from pathlib import Path
 import plistlib
 import shutil
@@ -82,6 +84,7 @@ def main():
     shutil.copy2(ROOT / "scintilla/License.txt", resources / "Scintilla-LICENSE.txt")
     shutil.copy2(ROOT / "lexilla/License.txt", resources / "Lexilla-LICENSE.txt")
     shutil.copy2(ROOT / "macOS/README.md", resources / "README.md")
+    (resources / "languages.json").write_text(json.dumps(catalog(ROOT), ensure_ascii=False), encoding="utf-8")
     shutil.copytree(ROOT / "PowerEditor/Packaging/NoteX/assets/fonts", resources / "Fonts")
     for source in (ROOT / "scintilla/cocoa/res").glob("*.png"):
         shutil.copy2(source, resources / source.name)

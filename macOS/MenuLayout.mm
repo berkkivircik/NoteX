@@ -42,6 +42,7 @@ static BOOL ValidLayout(NSDictionary *value) {
         // Keys do not depend on translated display labels for executable commands.
         NSString *local = item.submenu ? [@"menu:" stringByAppendingString:item.title] :
             [NSString stringWithFormat:@"%@:%ld", NSStringFromSelector(item.action) ?: item.title, (long)item.tag];
+        if(item.action==NSSelectorFromString(@"chooseBuiltinLanguage:")&&[item.representedObject isKindOfClass:NSString.class])local=[@"language:" stringByAppendingString:item.representedObject];
         NSString *key = [parent stringByAppendingFormat:@"/%@", local];
         BOOL locked = ([parent isEqual:@""] && result.count == 0) ||
             item.action == @selector(terminate:) || item.action == NSSelectorFromString(@"customizeMenus:") ||

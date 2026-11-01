@@ -88,7 +88,7 @@ NSArray *NXSearchFiles(NSArray *inputs, NSDictionary *options, BOOL (^cancelled)
 }
 
 @implementation NXFileSearch {
-    NSTextField *_query,*_replacement,*_folder,*_include,*_exclude,*_status;NSPopUpButton *_scope;
+    NSTextField *_query,*_replacement,*_folder,*_include,*_exclude,*_status;NSPopUpButton *_scope,*_engine;
     NSButton *_regex,*_case,*_word,*_recursive,*_hidden,*_find,*_apply;
     NSTableView *_table;NSArray *_results;NSOperationQueue *_queue;NSUInteger _generation;BOOL _busy;
 }
@@ -107,11 +107,12 @@ NSArray *NXSearchFiles(NSArray *inputs, NSDictionary *options, BOOL (^cancelled)
         _find=[NSButton buttonWithTitle:@"Find / Preview" target:self action:@selector(search:)];_find.frame=NSMakeRect(16,382,150,30);[self.window.contentView addSubview:_find];
         NSButton *cancel=[NSButton buttonWithTitle:@"Cancel Search" target:self action:@selector(cancelSearch:)];cancel.frame=NSMakeRect(178,382,140,30);[self.window.contentView addSubview:cancel];
         _apply=[NSButton buttonWithTitle:@"Apply Previewed Replacements…" target:self action:@selector(replace:)];_apply.frame=NSMakeRect(330,382,290,30);_apply.enabled=NO;[self.window.contentView addSubview:_apply];
+        _engine=[[NSPopUpButton alloc]initWithFrame:NSMakeRect(16,28,280,26) pullsDown:NO];[_engine addItemsWithTitles:@[@"ICU regular expressions",@"Boost.Regex (Windows-compatible)"]];[self.window.contentView addSubview:_engine];
         NSButton *backups=[NSButton buttonWithTitle:@"Open Backups" target:self action:@selector(backups:)];backups.frame=NSMakeRect(640,382,160,30);[self.window.contentView addSubview:backups];
         NSScrollView *scroll=[[NSScrollView alloc]initWithFrame:NSMakeRect(16,60,888,308)];scroll.hasVerticalScroller=YES;scroll.hasHorizontalScroller=YES;_table=[[NSTableView alloc]initWithFrame:scroll.bounds];
         for(NSArray *entry in @[@[@"file",@"File",@350],@[@"line",@"Line",@55],@[@"excerpt",@"Matching Text",@400],@[@"replacement",@"Replacement",@240]]){NSTableColumn *c=[[NSTableColumn alloc]initWithIdentifier:entry[0]];c.title=entry[1];c.width=[entry[2] doubleValue];[_table addTableColumn:c];}
         _table.delegate=self;_table.dataSource=self;_table.target=self;_table.doubleAction=@selector(activate:);scroll.documentView=_table;[self.window.contentView addSubview:scroll];
-        _status=[NSTextField wrappingLabelWithString:@"Filters use semicolon-separated wildcards. Double-click a match to open it. Preview captures the replacement text; edit and search again to change the plan."];_status.frame=NSMakeRect(16,10,888,44);[self.window.contentView addSubview:_status];[self.window center];
+        _status=[NSTextField wrappingLabelWithString:@"Filters use semicolon-separated wildcards. Double-click a match to open it. Preview captures the replacement text; edit and search again to change the plan."];_status.frame=NSMakeRect(310,10,590,44);[self.window.contentView addSubview:_status];[self.window center];
     }self.window.appearance=parent.appearance;[self showWindow:nil];[self.window makeKeyAndOrderFront:nil];
 }
 - (void)browse:(id)sender {NSOpenPanel *panel=[NSOpenPanel openPanel];panel.canChooseFiles=NO;panel.canChooseDirectories=YES;if([panel runModal]==NSModalResponseOK)_folder.stringValue=panel.URL.path;}
@@ -119,7 +120,7 @@ NSArray *NXSearchFiles(NSArray *inputs, NSDictionary *options, BOOL (^cancelled)
 - (void)cancelSearch:(id)sender {++_generation;[_queue cancelAllOperations];_busy=NO;_find.enabled=YES;_apply.enabled=NO;_status.stringValue=@"Search canceled. No files were changed.";}
 - (void)search:(id)sender {
     [self cancelSearch:nil];_results=@[];[_table reloadData];
-    NSDictionary *options=@{@"query":_query.stringValue,@"replacement":_replacement.stringValue,@"include":_include.stringValue,@"exclude":_exclude.stringValue,@"regex":@(_regex.state==NSControlStateValueOn),@"matchCase":@(_case.state==NSControlStateValueOn),@"wholeWord":@(_word.state==NSControlStateValueOn),@"recursive":@(_recursive.state==NSControlStateValueOn),@"hidden":@(_hidden.state==NSControlStateValueOn)};
+    NSDictionary *options=@{@"engine":_engine.indexOfSelectedItem?@"boost":@"icu",@"query":_query.stringValue,@"replacement":_replacement.stringValue,@"include":_include.stringValue,@"exclude":_exclude.stringValue,@"regex":@(_regex.state==NSControlStateValueOn),@"matchCase":@(_case.state==NSControlStateValueOn),@"wholeWord":@(_word.state==NSControlStateValueOn),@"recursive":@(_recursive.state==NSControlStateValueOn),@"hidden":@(_hidden.state==NSControlStateValueOn)};
     NSArray *inputs;
     if(_scope.indexOfSelectedItem==0){BOOL directory=NO;if(![NSFileManager.defaultManager fileExistsAtPath:_folder.stringValue isDirectory:&directory]||!directory){_status.stringValue=@"Choose an existing folder.";return;}inputs=@[_folder.stringValue];}
     else inputs=self.scopeFiles?self.scopeFiles(_scope.indexOfSelectedItem):@[];
