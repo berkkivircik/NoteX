@@ -340,6 +340,7 @@ static void Alert(NSString *message) {
         [stack.leadingAnchor constraintEqualToAnchor:content.leadingAnchor], [stack.trailingAnchor constraintEqualToAnchor:content.trailingAnchor],
         [stack.topAnchor constraintEqualToAnchor:content.topAnchor], [stack.bottomAnchor constraintEqualToAnchor:content.bottomAnchor constant:-6],
         [self.status.bottomAnchor constraintEqualToAnchor:stack.bottomAnchor],
+        [toolbar.heightAnchor constraintEqualToConstant:44], [self.findBar.heightAnchor constraintEqualToConstant:36],
         [toolbar.widthAnchor constraintEqualToAnchor:stack.widthAnchor], [self.split.widthAnchor constraintEqualToAnchor:stack.widthAnchor],
         [self.split.heightAnchor constraintGreaterThanOrEqualToConstant:200]]];
     [self.split setContentHuggingPriority:1 forOrientation:NSLayoutConstraintOrientationVertical];
