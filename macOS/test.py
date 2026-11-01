@@ -71,4 +71,23 @@ with tempfile.TemporaryDirectory(prefix="notex-native-tests-") as directory:
                 process.kill()
             process.wait(timeout=10)
     run(APP, "restore", work / "test-crash")
+    if os.environ.get("CI"):
+        for mode in ("ui-function", "ui-project", "ui-menu"):
+            log = work / f"{mode}.log"
+            with log.open("w") as output:
+                process = subprocess.Popen([str(APP / "Contents/MacOS/NoteX"), "--self-test", mode],
+                    env=dict(os.environ, NOTEX_PROFILE=str(work / f"test-{mode}")), stdout=output, stderr=subprocess.STDOUT)
+                try:
+                    deadline = time.monotonic() + 30
+                    while "READY" not in log.read_text():
+                        if process.poll() is not None or time.monotonic() > deadline:
+                            raise RuntimeError("Panel UI test failed: " + log.read_text())
+                        time.sleep(0.2)
+                    time.sleep(0.5)
+                    subprocess.run(["screencapture", "-x", str(OUTPUT / f"{mode}.png")], check=True, timeout=15)
+                    print(log.read_text(), flush=True)
+                finally:
+                    if process.poll() is None:
+                        process.kill()
+                    process.wait(timeout=10)
 print("Native suite, normal restart, application replacement, and post-snapshot process termination passed.")

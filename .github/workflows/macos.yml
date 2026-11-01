@@ -34,6 +34,7 @@ jobs:
             dist/macOS/test-results.json
             dist/macOS/native-preview.png
             dist/macOS/native-desktop.png
+            dist/macOS/ui-*.png
   verify-newer-macos:
     needs: build
     runs-on: macos-26
@@ -58,3 +59,4 @@ jobs:
             dist/macOS/test-results.json
             dist/macOS/native-preview.png
             dist/macOS/native-desktop.png
+            dist/macOS/ui-*.png

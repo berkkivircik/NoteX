@@ -232,7 +232,7 @@ static void Alert(NSString *message) {
         [self button:@"B" action:@selector(toggleFormat:) tag:NoteX::Bold],
         [self button:@"I" action:@selector(toggleFormat:) tag:NoteX::Italic],
         [self button:@"U" action:@selector(toggleFormat:) tag:NoteX::Underline],
-        [self button:@"SÌ¶" action:@selector(toggleFormat:) tag:NoteX::Strike],
+        [self button:@"S̶" action:@selector(toggleFormat:) tag:NoteX::Strike],
         [self button:@"Color" action:@selector(pickColor:) tag:NoteX::Fore],
         [self button:@"Highlight" action:@selector(pickColor:) tag:NoteX::Highlight], self.language]];
     toolbar.spacing = 6;

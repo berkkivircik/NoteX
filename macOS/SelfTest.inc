@@ -20,6 +20,33 @@ static void Bold24(ScintillaView *view) {
     Check(NSProcessInfo.processInfo.environment[@"NOTEX_PROFILE"].length > 0, "explicit isolated test profile");
     Check([self.storage.directory.lastPathComponent hasPrefix:@"test-"], "test profile guard");
     NSError *error = nil;
+    if ([mode hasPrefix:@"ui-"]) {
+        NSString *path = [self.storage.directory stringByAppendingPathComponent:@"example.py"];
+        NSData *code = [@"# NoteX native workspace example\n\nclass Notebook:\n    def add_note(self, title):\n        return title.strip()\n\ndef main():\n    notebook = Notebook()\n    return notebook.add_note('Hello, NoteX')\n" dataUsingEncoding:NSUTF8StringEncoding];
+        Check(NXWrite(code, path, &error) && [self openPath:path error:&error], "open synthetic panel example");
+        [self.workspace showPanel:1]; [self.workspace addProjectNamed:@"NoteX Examples"];
+        Check([self.workspace addPaths:@[path] toNode:self.workspace.projects[0][@"children"][0] error:&error], "populate native project panel");
+        [self showPanel:TestCommand([mode isEqual:@"ui-project"] ? 1 : 0)];
+        NSOutlineView *tree = [self.workspace valueForKey:@"tree"];
+        [tree expandItem:nil expandChildren:YES];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            [tree expandItem:nil expandChildren:YES];
+            if ([mode isEqual:@"ui-function"]) {
+                Check(self.workspace.symbols.count >= 3 && tree.numberOfRows >= 3, "asynchronous Function List populates native outline");
+                [tree selectRowIndexes:[NSIndexSet indexSetWithIndex:1] byExtendingSelection:NO];
+                NSDictionary *symbol = [tree itemAtRow:1];
+                [NSApp sendAction:tree.doubleAction to:tree.target from:tree];
+                Check(Send(self.current.editor, SCI_GETCURRENTPOS) == [symbol[@"position"] longLongValue], "Function List double action navigates editor");
+            } else if ([mode isEqual:@"ui-project"]) {
+                [tree selectRowIndexes:[NSIndexSet indexSetWithIndex:2] byExtendingSelection:NO];
+                [NSApp sendAction:tree.doubleAction to:tree.target from:tree];
+                Check([self.current.path isEqual:path] && tree.numberOfRows == 3, "project outline opens its file reference");
+            }
+            printf("READY\n"); fflush(stdout);
+            if ([mode isEqual:@"ui-menu"]) [self customizeMenus:nil];
+        });
+        return;
+    }
     if ([mode isEqual:@"seed"] || [mode isEqual:@"crash-seed"]) {
         NXDocument *doc = self.current;
         NSData *initial = [mode isEqual:@"seed"] ? [Sample() subdataWithRange:NSMakeRange(0, Sample().length - 8)] : Sample();
