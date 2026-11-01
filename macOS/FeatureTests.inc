@@ -68,6 +68,7 @@ static NSMenuItem *FindMenuCommand(NSMenu *menu, SEL action, NSInteger tag) {
         NSDictionary *expected = [NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:[fixture stringByAppendingPathComponent:@"unitTest.expected.result"]] options:0 error:nil];
         NSString *rule = [NSBundle.mainBundle.resourcePath stringByAppendingPathComponent:[NSString stringWithFormat:@"functionList/%@.xml", [language isEqual:@"javascript"] ? @"javascript.js" : language]];
         error = nil; NSArray *symbols = NXFunctionIndex(input, rule, &error);
+        if (error) fprintf(stderr, "Function List error %s: %s\n", language.UTF8String, error.localizedDescription.UTF8String);
         Check(symbols && !error, [NSString stringWithFormat:@"parse upstream %@ fixture", language].UTF8String);
         NSMutableDictionary *actual = [NSMutableDictionary new], *wanted = [NSMutableDictionary new];
         actual[@""] = [NSMutableArray new]; wanted[@""] = expected[@"leaves"];

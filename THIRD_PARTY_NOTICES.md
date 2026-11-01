@@ -26,14 +26,16 @@ The fonts are unmodified bundled resources. Their copyright and full OFL texts
 are supplied beside the fonts in both source and portable distributions. The
 OFL does not apply to documents created with those fonts.
 
-The native macOS binary links the modified Scintilla Cocoa backend and Lexilla.
+The native macOS binary links the modified Scintilla Cocoa backend and Lexilla
+and compiles the included Boost.Regex headers. It also bundles the Notepad++
+Function List XML rules, retaining their original notices.
 For Cocoa files offered under either LGPL v2.1 or the Scintilla license, this
 distribution uses the Scintilla license option. The original Oracle, Sun,
 Mike Lischke, Evan Jones, Neil Hodgson, and other contributor notices remain
 in their source files. Cocoa, Core Text, Quartz Core, and CommonCrypto are
 provided by the operating system and are not copied into the application.
 The macOS application bundle does not contain the Windows PowerEditor binary,
-Boost.Regex, pugixml, JSON for Modern C++, or Windows dark-mode helpers.
+pugixml, JSON for Modern C++, or Windows dark-mode helpers.
 
 LICENSES/BUNDLED_SOURCE_NOTICES.txt preserves additional license and copyright
 comment blocks verbatim. It supplements the source notices and complete license

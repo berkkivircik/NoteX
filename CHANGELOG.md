@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.3.3 macOS Preview 2 - 2026-11-01
+
+- Add persistent native menu visibility and ordering, with Apply, Cancel, and Reset.
+- Add Function List using the upstream XML rules and Boost.Regex, including class
+  groups, filtering, sorting, custom parsers, and navigation to UTF-8 byte positions.
+- Add three independent project panels, Notepad++ workspace XML import/export,
+  relative paths, reference management, relinking, and Folder as Workspace.
+- Add editing macro recording, named macros, repeat playback, and grouped undo.
+- Add editor preferences, bookmarks, folding, automatic indentation, brace matching,
+  word completion, line operations, encoding and line-ending conversion.
+- Add format copying, rich-text copying, RTF/HTML export, Save All, Reload, and Print.
+- Keep project, menu, macro, and bookmark state outside the application bundle.
+- Extend isolated native tests to upstream Function List fixtures, workspace safety,
+  feature persistence, and upgrading a session created by the published first preview.
+- Preserve the Windows release and document remaining platform differences.
+
 ## 1.3.2 macOS Preview 1 - 2026-11-01
 
 - Add a native Apple Silicon application with AppKit windows, menus, tabs,

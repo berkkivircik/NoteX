@@ -12,6 +12,31 @@
 #include <vector>
 
 namespace {
+// XML attribute normalization would turn the line breaks in (?x) expressions
+// into spaces, causing a # comment to swallow the rest of the expression.
+// Preserve literal attribute whitespace as character references before parsing.
+static NSData *PreserveAttributeWhitespace(NSData *xml) {
+    std::string input(static_cast<const char *>(xml.bytes), xml.length), output;
+    output.reserve(input.size()); char quote = 0; bool tag = false;
+    for (size_t i = 0; i < input.size(); ++i) {
+        char c = input[i];
+        if (!quote && input.compare(i, 4, "<!--") == 0) {
+            size_t end = input.find("-->", i + 4);
+            if (end == std::string::npos) return xml;
+            output.append(input, i, end + 3 - i); i = end + 2; continue;
+        }
+        if (quote) {
+            if (c == quote) quote = 0;
+            else if (c == '\n' || c == '\r' || c == '\t') {
+                output += c == '\n' ? "&#10;" : c == '\r' ? "&#13;" : "&#9;"; continue;
+            }
+        } else if (c == '<') tag = true;
+        else if (c == '>') tag = false;
+        else if (tag && (c == '\'' || c == '"')) quote = c;
+        output += c;
+    }
+    return [NSData dataWithBytes:output.data() length:output.size()];
+}
 struct Span { size_t start, end; };
 struct Symbol { std::string name, scope; size_t position; bool isClass; };
 static std::string Attr(NSXMLElement *node, NSString *key) {
@@ -124,7 +149,7 @@ NSArray<NSDictionary *> *NXFunctionIndex(NSData *text, NSString *ruleFile, NSErr
     if (text.length > 16 * 1024 * 1024) { if (error) *error = NXError(@"Function List supports documents up to 16 MB."); return nil; }
     NSData *xml = [NSData dataWithContentsOfFile:ruleFile options:0 error:error];
     if (!xml) return nil;
-    NSXMLDocument *document = [[NSXMLDocument alloc] initWithData:xml options:NSXMLNodeLoadExternalEntitiesNever error:error];
+    NSXMLDocument *document = [[NSXMLDocument alloc] initWithData:PreserveAttributeWhitespace(xml) options:NSXMLNodeLoadExternalEntitiesNever error:error];
     if (!document || document.DTD) { if (error && !*error) *error = NXError(@"Function List rules must not contain a DTD."); return nil; }
     NSXMLElement *parser = Child(Child(document.rootElement, @"functionList"), @"parser");
     if (!parser) { if (error) *error = NXError(@"This file does not contain a Function List parser."); return nil; }

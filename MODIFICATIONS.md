@@ -1,6 +1,6 @@
 # NoteX modification notice
 
-Modified distributions: NoteX 1.3.1 for Windows and 1.3.2 macOS Preview 1.
+Modified distributions: NoteX 1.3.1 for Windows and 1.3.3 macOS Preview 2.
 Modifier: Berk Kivircik. Latest modification date: November 1, 2026.
 NoteX modifications: Copyright (C) 2026 Berk Kivircik.
 The modified work as a whole is distributed under GNU GPL version 3.
@@ -28,6 +28,12 @@ The NoteX publication updates branding, legal notices, build discovery, and clea
 packaging. Legacy `.notex` files and menu settings remain compatible.
 
 ## Modified upstream code and project files
+
+The second native preview adds `macOS/MenuLayout`, `macOS/Workspace`,
+`macOS/FunctionIndex`, and the native feature commands and regression tests.
+It extends native session validation and persistence, and bundles the original
+Notepad++ Function List rules with their existing notices. Native builds now use
+the included Boost.Regex headers. These additions were made November 1, 2026.
 
 The November 1, 2026 macOS port adds the AppKit application, storage, build,
 and native integration tests in `macOS/`. It modifies

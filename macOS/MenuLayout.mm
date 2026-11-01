@@ -26,6 +26,9 @@ static BOOL ValidLayout(NSDictionary *value) {
     NSMutableArray *result = [NSMutableArray new];
     for (NSMenuItem *item in menu.itemArray) {
         if (item.separatorItem) continue;
+        // AppKit injects system-only commands (for example Dictation) at runtime.
+        // They cannot be recreated as ordinary application menu items.
+        if (item.keyEquivalentModifierMask & NSEventModifierFlagFunction) continue;
         // Keys do not depend on translated display labels for executable commands.
         NSString *local = item.submenu ? [@"menu:" stringByAppendingString:item.title] :
             [NSString stringWithFormat:@"%@:%ld", NSStringFromSelector(item.action) ?: item.title, (long)item.tag];
