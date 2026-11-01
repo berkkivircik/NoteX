@@ -88,6 +88,16 @@ static void CancelNextDialog(void) {
     Check([[[NSFileManager.defaultManager attributesOfItemAtPath:utf16File error:&error] objectForKey:NSFilePosixPermissions] unsignedIntegerValue]==0640,"atomic replacement preserves existing permission bits");
     Check([NXSearchFiles(@[folder],options,^BOOL{return YES;},&error) count]==0,"cancel file enumeration without changes");
     literal[@"regex"]=@YES;literal[@"query"]=@"(";error=nil;Check(!NXSearchMatches(@"text",literal,&error)&&error,"invalid regular expression is reported");
+    // Earlier fixtures are synthetic and complete; isolate the two dirty Save All targets.
+    for(NXDocument *existing in self.documents){Send(existing.primaryEditor,SCI_SETSAVEPOINT);existing.restoredDirty=NO;}
+    NXDocument *firstSave=[self newDocument:nil];SetText(firstSave.primaryEditor,[@"first" dataUsingEncoding:NSUTF8StringEncoding]);NSString *firstPath=[folder stringByAppendingPathComponent:@"save-all-first.txt"];
+    Check([self saveDocument:firstSave path:firstPath error:&error],"save first split-view Save All fixture");
+    NXDocument *secondSave=[self newDocument:nil];SetText(secondSave.primaryEditor,[@"second" dataUsingEncoding:NSUTF8StringEncoding]);NSString *secondPath=[folder stringByAppendingPathComponent:@"save-all-second.txt"];
+    Check([self saveDocument:secondSave path:secondPath error:&error],"save second split-view Save All fixture");
+    [self cloneView:TestCommand(1)];[self.tabs selectTabViewItem:firstSave.tab];self.secondaryFocused=YES;secondSave.activeEditor=self.secondaryEditor;
+    Send(firstSave.primaryEditor,SCI_APPENDTEXT,1,reinterpret_cast<sptr_t>("1"));Send(self.secondaryEditor,SCI_APPENDTEXT,1,reinterpret_cast<sptr_t>("2"));[self saveAll:nil];
+    Check([NXDecodeText([NSData dataWithContentsOfFile:firstPath]) isEqual:@"first1"]&&[NXDecodeText([NSData dataWithContentsOfFile:secondPath]) isEqual:@"second2"],"Save All saves both documents when the second pane has focus");
+    Check(self.secondaryFocused&&self.current==secondSave&&self.tabs.selectedTabViewItem==firstSave.tab,"Save All restores both pane selections and focus");[self closeSecondary:nil];
     Check([self snapshot:&error],"persist complete workbench state");
 }
 - (void)workbenchUI:(NSString *)mode {
