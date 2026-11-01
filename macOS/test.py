@@ -10,6 +10,8 @@ import shutil
 import subprocess
 import tempfile
 import time
+import hashlib
+import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "dist/macOS"
@@ -42,6 +44,14 @@ with tempfile.TemporaryDirectory(prefix="notex-native-tests-") as directory:
     replacement.parent.mkdir()
     shutil.copytree(APP, replacement)
     run(replacement, "restore", work / "test-restart")
+    if os.environ.get("CI"):
+        # Exercise a real upgrade from the immutable first native release.
+        old_zip = work / "previous.zip"
+        urllib.request.urlretrieve("https://github.com/berkkivircik/NoteX/releases/download/v1.3.2-macos.1/NoteX-1.3.2-macos-arm64.zip", old_zip)
+        assert hashlib.sha256(old_zip.read_bytes()).hexdigest() == "93b4170c541a96dcca15a60c06a2528b492613b0704acb386af0ecec808a9748"
+        subprocess.run(["ditto", "-x", "-k", str(old_zip), str(work / "Previous")], check=True)
+        run(work / "Previous/NoteX.app", "seed", work / "test-upgrade")
+        run(APP, "restore-legacy", work / "test-upgrade")
     # Kill only the child launched here, after the ordinary autosnapshot timer.
     log = work / "crash.log"
     with log.open("w") as output:

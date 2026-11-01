@@ -124,6 +124,11 @@ static NSDictionary *DecodeSession(NSData *data) {
     }
     for (id doc in documents) {
         if (![doc isKindOfClass:NSDictionary.class]) return nil;
+        if (doc[@"eol"] && (![doc[@"eol"] isKindOfClass:NSNumber.class] || [doc[@"eol"] integerValue] < 0 || [doc[@"eol"] integerValue] > 2)) return nil;
+        if (doc[@"bookmarks"]) {
+            if (![doc[@"bookmarks"] isKindOfClass:NSArray.class]) return nil;
+            for (id line in doc[@"bookmarks"]) if (![line isKindOfClass:NSNumber.class]) return nil;
+        }
         for (NSString *key in @[@"id", @"path", @"title", @"lexer"])
             if (![doc[key] isKindOfClass:NSString.class]) return nil;
         for (NSString *key in @[@"text", @"format", @"diskHash"])

@@ -25,6 +25,14 @@ static void Bold24(ScintillaView *view) {
         NSData *initial = [mode isEqual:@"seed"] ? [Sample() subdataWithRange:NSMakeRange(0, Sample().length - 8)] : Sample();
         SetText(doc.editor, initial); Bold24(doc.editor);
         Send(doc.editor, SCI_GOTOPOS, Sample().length);
+        Send(doc.editor, SCI_MARKERADD, 0, 0);
+        for (NSInteger panel = 1; panel <= 3; ++panel) {
+            [self.workspace showPanel:panel];
+            [self.workspace addProjectNamed:[NSString stringWithFormat:@"Recovery Project %ld", (long)panel]];
+        }
+        self.preferences[@"tabWidth"] = @2;
+        [self.macros addObject:@{@"name":@"Recovery Macro", @"actions":@[@{@"message":@(SCI_REPLACESEL), @"w":@0, @"l":@0, @"text":[@"restored" dataUsingEncoding:NSUTF8StringEncoding]}]}];
+        Check([self.menuLayout setLayout:@{@"order":@{@"":@[@"/menu:View"]}, @"hidden":@[@"/menu:Format/toggleFormat::1"]} error:&error], "persist feature settings with unsaved session");
         // Use the regular autosnapshot timer, not a separate test storage implementation.
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1500 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
             Check([NSFileManager.defaultManager fileExistsAtPath:[self.storage.directory stringByAppendingPathComponent:@"session.plist"]], "autosnapshot completed");
@@ -40,7 +48,7 @@ static void Bold24(ScintillaView *view) {
         });
         return;
     }
-    if ([mode isEqual:@"restore"]) {
+    if ([mode isEqual:@"restore"] || [mode isEqual:@"restore-legacy"]) {
         NXDocument *doc = self.current;
         Check([Text(doc.editor) isEqual:Sample()], "restore exact unsaved Unicode bytes");
         auto state = State(doc.editor);
@@ -48,6 +56,14 @@ static void Bold24(ScintillaView *view) {
         Check(state.formats[state.runs[0].style].bold && state.formats[state.runs[0].style].size == 2400, "restore bold and size");
         Check(Send(doc.editor, SCI_GETCURRENTPOS) == (sptr_t)Sample().length, "restore caret position");
         Check(doc.dirty, "restored unsaved tab remains dirty");
+        if ([mode isEqual:@"restore"]) {
+            for (NSInteger panel = 0; panel < 3; ++panel)
+                Check([self.workspace.projects[panel][@"children"][0][@"name"] isEqual:[NSString stringWithFormat:@"Recovery Project %ld", (long)panel + 1]], "restore independent project panel across process restart");
+            Check([self.preferences[@"tabWidth"] isEqual:@2] && Send(doc.editor, SCI_GETTABWIDTH) == 2, "restore editor preferences");
+            Check(self.macros.count == 1 && [self.macros[0][@"name"] isEqual:@"Recovery Macro"], "restore saved macro");
+            Check(!FindMenuCommand(NSApp.mainMenu, @selector(toggleFormat:), NoteX::Bold) && [[NSApp.mainMenu itemAtIndex:1].title isEqual:@"View"], "restore customized native menus");
+            Check(Send(doc.editor, SCI_MARKERGET, 0) & 1, "restore bookmarks");
+        }
         [NSApp terminate:nil]; return;
     }
     Check([mode isEqual:@"suite"], "known test mode");

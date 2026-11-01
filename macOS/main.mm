@@ -60,7 +60,10 @@ static void Alert(NSString *message) {
 - (BOOL)dirty { return self.restoredDirty || Send(self.editor, SCI_GETMODIFY); }
 - (NSDictionary *)record {
     NSData *text = Text(self.editor);
+    NSMutableArray *bookmarks = [NSMutableArray new];
+    for (sptr_t line = Send(self.editor, SCI_MARKERNEXT, 0, 1); line >= 0; line = Send(self.editor, SCI_MARKERNEXT, line + 1, 1)) [bookmarks addObject:@(line)];
     return @{@"id":self.identifier, @"path":self.path, @"title":self.title, @"lexer":self.lexer,
+             @"bookmarks":bookmarks, @"eol":@(Send(self.editor, SCI_GETEOLMODE)),
              @"text":text, @"format":NXCompanion(text, State(self.editor)), @"diskHash":self.diskHash,
              @"encoding":@(self.encoding), @"bom":@(self.bom), @"dirty":@(self.dirty),
              @"caret":@(Send(self.editor, SCI_GETCURRENTPOS)), @"anchor":@(Send(self.editor, SCI_GETANCHOR)),
@@ -309,6 +312,8 @@ static void Alert(NSString *message) {
         doc.diskHash = record[@"diskHash"]; doc.encoding = [record[@"encoding"] unsignedIntegerValue]; doc.bom = [record[@"bom"] boolValue];
         doc.lexer = record[@"lexer"];
         SetText(doc.editor, record[@"text"]);
+        if ([record[@"eol"] isKindOfClass:NSNumber.class]) Send(doc.editor, SCI_SETEOLMODE, [record[@"eol"] integerValue]);
+        for (NSNumber *line in record[@"bookmarks"]) if (line.longLongValue >= 0 && line.longLongValue < Send(doc.editor, SCI_GETLINECOUNT)) Send(doc.editor, SCI_MARKERADD, line.unsignedLongLongValue, 0);
         NoteX::State state;
         NXReadCompanion(record[@"format"], record[@"text"], state);
         Restore(doc.editor, std::move(state));
@@ -361,6 +366,7 @@ static void Alert(NSString *message) {
     [self applyPreferences:doc];
     [self theme:doc];
     doc.editor.delegate = self;
+    if (self.recording) Send(doc.editor, SCI_STARTRECORD);
     doc.tab = [[NSTabViewItem alloc] initWithIdentifier:doc.identifier];
     doc.tab.label = doc.title; doc.tab.view = doc.editor;
     [self.documents addObject:doc]; [self.tabs addTabViewItem:doc.tab]; [self.tabs selectTabViewItem:doc.tab];
