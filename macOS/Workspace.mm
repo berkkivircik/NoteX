@@ -34,7 +34,7 @@ static NSMutableDictionary *ReadNode(NSXMLElement *element, NSString *base, unsi
     }
     NSMutableDictionary *node = NXProjectNode(kind, name, path);
     for (NSXMLNode *child in element.children) if (child.kind == NSXMLElementKind) {
-        if ([kind isEqual:@"file"] || ([kind isEqual:@"folder"] && [child.name isEqual:@"Project"])) { if (error) *error = NXError(@"Invalid project hierarchy."); return nil; }
+        if ([kind isEqual:@"file"] || [child.name isEqual:@"Project"]) { if (error) *error = NXError(@"Invalid project hierarchy."); return nil; }
         NSMutableDictionary *nested = ReadNode((NSXMLElement *)child, base, depth + 1, count, error);
         if (!nested) return nil;
         [node[@"children"] addObject:nested];
@@ -323,8 +323,9 @@ BOOL NXWriteWorkspace(NSDictionary *root, NSString *path, NSError **error) {
 - (BOOL)addPaths:(NSArray<NSString *> *)paths toNode:(NSMutableDictionary *)parent error:(NSError **)error {
     if (!parent || [parent[@"kind"] isEqual:@"file"]) { if (error) *error = NXError(@"Select a project or folder first."); return NO; }
     NSMutableArray *pending = [NSMutableArray new]; NSUInteger count = 0;
+    if (_mode >= 1 && _mode <= 3) NXValidateProject(_projects[_mode - 1], &count, 0);
     for (NSString *path in paths) {
-        if ([[parent[@"children"] valueForKey:@"path"] containsObject:path]) continue;
+        if ([[parent[@"children"] valueForKey:@"path"] containsObject:path] || [[pending valueForKey:@"path"] containsObject:path]) continue;
         NSMutableDictionary *node = [self nodeFromPath:path depth:0 count:&count error:error];
         if (!node) return NO;
         [pending addObject:node];

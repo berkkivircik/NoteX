@@ -485,7 +485,7 @@ static void Alert(NSString *message) {
     NXDocument *doc = [self newDocument:nil];
     doc.path = path; doc.title = path.lastPathComponent; doc.encoding = encoding; doc.bom = bom; doc.diskHash = NXDigest(disk);
     SetText(doc.editor, [string dataUsingEncoding:NSUTF8StringEncoding]);
-    Send(doc.editor, SCI_SETEOLMODE, [string containsString:@"\r\n"] ? SC_EOL_CRLF : SC_EOL_LF);
+    Send(doc.editor, SCI_SETEOLMODE, [string containsString:@"\r\n"] ? SC_EOL_CRLF : [string containsString:@"\r"] && ![string containsString:@"\n"] ? SC_EOL_CR : SC_EOL_LF);
     NSDictionary *lexers = @{@"c":@"cpp", @"h":@"cpp", @"cc":@"cpp", @"cpp":@"cpp", @"hpp":@"cpp", @"m":@"cpp", @"mm":@"cpp", @"js":@"cpp", @"ts":@"cpp", @"java":@"cpp", @"py":@"python", @"json":@"json", @"xml":@"xml", @"html":@"html", @"css":@"css", @"md":@"markdown", @"sh":@"bash", @"sql":@"sql", @"yaml":@"yaml", @"yml":@"yaml", @"swift":@"swift", @"rs":@"rust"};
     doc.lexer = lexers[path.pathExtension.lowercaseString] ?: @"null";
     [self configureLexer:doc];

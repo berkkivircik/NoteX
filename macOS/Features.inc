@@ -182,6 +182,7 @@ static BOOL StringMacroMessage(unsigned message) {
     } else {
         auto first = Send(view, SCI_LINEFROMPOSITION, Send(view, SCI_GETSELECTIONSTART));
         auto last = Send(view, SCI_LINEFROMPOSITION, Send(view, SCI_GETSELECTIONEND));
+        if (last > first && Send(view, SCI_GETSELECTIONEND) == Send(view, SCI_POSITIONFROMLINE, last)) --last;
         auto start = Send(view, SCI_POSITIONFROMLINE, first), end = Send(view, SCI_GETLINEENDPOSITION, last);
         NSData *all = Text(view); NSData *part = [all subdataWithRange:NSMakeRange(start, end - start)];
         NSString *text = [[NSString alloc] initWithData:part encoding:NSUTF8StringEncoding];
@@ -248,6 +249,7 @@ static BOOL StringMacroMessage(unsigned message) {
 - (void)stopRecording:(id)sender { self.recording = NO; for (NXDocument *doc in self.documents) Send(doc.editor, SCI_STOPRECORD); [self tick:nil]; }
 - (void)playActions:(NSArray *)actions repetitions:(NSUInteger)repetitions {
     if (self.recording || self.playingMacro || actions.count > 10000 || repetitions > 1000) return;
+    if (actions.count * repetitions > 100000) { Alert(@"This playback exceeds 100,000 editing actions. Reduce the repeat count."); return; }
     auto *view = self.current.editor; self.playingMacro = YES;
     Send(view, SCI_BEGINUNDOACTION);
     for (NSUInteger iteration = 0; iteration < repetitions; ++iteration) for (NSDictionary *action in actions) {

@@ -1,5 +1,6 @@
 // Copyright (C) 2026 Berk Kivircik. SPDX-License-Identifier: GPL-3.0-only
 static void Check(bool condition, const char *name);
+static void Bold24(ScintillaView *view);
 static NSButton *TestCommand(NSInteger tag) { NSButton *button = [NSButton new]; button.tag = tag; return button; }
 static NSMenuItem *FindMenuCommand(NSMenu *menu, SEL action, NSInteger tag) {
     for (NSMenuItem *item in menu.itemArray) {
@@ -111,6 +112,18 @@ static NSMenuItem *FindMenuCommand(NSMenu *menu, SEL action, NSInteger tag) {
     Check([doc.editor.string isEqual:@"a\r\nb\r\n"], "convert line endings to CRLF");
     [self convertEncoding:TestCommand(2)];
     Check(doc.encoding == NSUTF16LittleEndianStringEncoding && doc.bom && doc.dirty, "encoding conversion marks document dirty");
+    SetText(doc.editor, [@"b\na\nkeep\n" dataUsingEncoding:NSUTF8StringEncoding]); Send(doc.editor, SCI_SETEOLMODE, SC_EOL_LF);
+    Send(doc.editor, SCI_SETSEL, 0, 4); [self transformLines:TestCommand(1)];
+    Check([doc.editor.string isEqual:@"a\nb\nkeep\n"], "sort selected lines without consuming next unselected line");
+    Send(doc.editor, SCI_UNDO); Check([doc.editor.string isEqual:@"b\na\nkeep\n"], "undo line sorting in one action");
+    SetText(doc.editor, [@"Rich café" dataUsingEncoding:NSUTF8StringEncoding]); Bold24(doc.editor);
+    NSAttributedString *rich = [self formattedDocument];
+    NSData *rtf = [rich dataFromRange:NSMakeRange(0, rich.length) documentAttributes:@{NSDocumentTypeDocumentAttribute:NSRTFTextDocumentType} error:&error];
+    NSAttributedString *roundTrip = [[NSAttributedString alloc] initWithRTF:rtf documentAttributes:nil];
+    Check([roundTrip.string isEqual:@"Rich café"] && [[roundTrip attribute:NSFontAttributeName atIndex:0 effectiveRange:nil] pointSize] == 24, "RTF export preserves Unicode and formatted size");
+    Send(doc.editor, SCI_SETSEL, 0, Send(doc.editor, SCI_GETLENGTH)); [self copyFormat:nil];
+    [self clearFormat:nil]; [self pasteFormat:nil];
+    Check(State(doc.editor).formats[State(doc.editor).runs[0].style].bold, "copy and paste formatting restores bold style");
     [self.workspace showPanel:0];
 }
 @end
