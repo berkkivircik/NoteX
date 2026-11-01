@@ -12,7 +12,7 @@ static NSString *Native(const std::wstring &text) {return [[NSString alloc]initW
 NSArray *NXBoostMatches(NSString *text, NSDictionary *options, NSError **error) {
     try {
         std::wstring source=Wide(text),pattern=Wide(options[@"query"]),replacement=Wide(options[@"replacement"] ?: @"");
-        auto flags=boost::regex::perl;if(![options[@"matchCase"] boolValue])flags|=boost::regex::icase;
+        boost::regex::flag_type flags=boost::regex::perl;if(![options[@"matchCase"] boolValue])flags|=boost::regex::icase;
         boost::wregex regex(pattern,flags);NSMutableArray *matches=[NSMutableArray new];
         std::vector<NSUInteger> offsets(source.size()+1),lines(source.size()+1);NSUInteger offset=0,line=1;
         for(size_t i=0;i<source.size();++i){offsets[i]=offset;lines[i]=line;auto c=source[i];offset+=c<=0x7f?1:c<=0x7ff?2:c<=0xffff?3:4;if(c=='\n'||(c=='\r'&&(i+1==source.size()||source[i+1]!='\n')))++line;}offsets.back()=offset;lines.back()=line;

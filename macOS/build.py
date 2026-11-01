@@ -35,6 +35,14 @@ def main():
                     "lexilla/include", "lexilla/lexlib", "boostregex"]:
         flags += ["-I", str(ROOT / include)]
     sources = sorted((ROOT / "macOS").glob("*.mm"))
+    # Report all native front-end errors together before compiling shared engines.
+    failures = []
+    for source in sources:
+        result = subprocess.run(["xcrun", "clang++", *flags, "-fobjc-arc", "-fsyntax-only", str(source)])
+        if result.returncode:
+            failures.append(source.name)
+    if failures:
+        raise SystemExit("Native syntax checks failed: " + ", ".join(failures))
     sources += sorted((ROOT / "scintilla/src").glob("*.cxx"))
     sources += sorted((ROOT / "scintilla/cocoa").glob("*.mm"))
     sources += sorted((ROOT / "lexilla/lexlib").glob("*.cxx"))
