@@ -74,7 +74,10 @@ class Indexer {
             std::string expression = Attr((NSXMLElement *)child, @"expr");
             if (expression.empty()) continue;
             bool found = false;
-            each(expression, zone, [&](Span result) { zone = result; found = true; return false; });
+            each(expression, zone, [&](Span result) {
+                if (result.start == result.end) return true;
+                zone = result; found = true; return false;
+            });
             if (!found) return {0, 0};
         }
         return zone;
