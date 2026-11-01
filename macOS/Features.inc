@@ -124,9 +124,11 @@ static BOOL StringMacroMessage(unsigned message) {
     if (NoteX::decode(std::string(static_cast<const char *>(self.paintFormat.bytes), self.paintFormat.length), state, 1) && state.formats.size() > 1) [self apply:state.formats[1] fields:NoteX::All];
 }
 - (void)saveAll:(id)sender {
-    NXDocument *selected = self.current;
+    NSTabViewItem *selected = self.tabs.selectedTabViewItem;BOOL secondaryWasFocused=self.secondaryFocused;
+    self.secondaryFocused=NO;self.secondaryDocument.activeEditor=nil;
     for (NXDocument *doc in [self.documents copy]) if (doc.dirty) { [self.tabs selectTabViewItem:doc.tab]; if (![self saveCurrentAs:NO]) break; }
-    [self.tabs selectTabViewItem:selected.tab];
+    [self.tabs selectTabViewItem:selected];
+    if(secondaryWasFocused&&self.secondaryVisible){self.secondaryFocused=YES;self.secondaryDocument.activeEditor=self.secondaryEditor;[self.window makeFirstResponder:self.secondaryEditor];}
 }
 - (void)reloadDocument:(id)sender {
     NXDocument *doc = self.current; if (!doc.path.length) return;
