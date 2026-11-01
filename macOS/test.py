@@ -4,6 +4,7 @@ Copyright (C) 2026 Berk Kivircik. SPDX-License-Identifier: GPL-3.0-only
 """
 import json
 import os
+import platform
 from pathlib import Path
 import shutil
 import subprocess
@@ -13,7 +14,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "dist/macOS"
 APP = OUTPUT / "NoteX.app"
-results = []
+results = [{"macOS": platform.mac_ver()[0], "architecture": platform.machine()}]
 
 def run(app, mode, profile):
     env = dict(os.environ, NOTEX_PROFILE=str(profile), NOTEX_TEST_IMAGE=str(OUTPUT / "native-preview.png"))

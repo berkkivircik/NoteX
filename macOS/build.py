@@ -56,6 +56,7 @@ def main():
         "CFBundleIdentifier": "com.berkkivircik.NoteX", "CFBundleExecutable": "NoteX",
         "CFBundlePackageType": "APPL", "CFBundleShortVersionString": VERSION,
         "CFBundleVersion": BUILD, "LSMinimumSystemVersion": "14.0",
+        "CFBundleIconFile": "NoteX.icns",
         "NSHighResolutionCapable": True, "NSPrincipalClass": "NSApplication",
         "NSHumanReadableCopyright": "Copyright Â© 2026 Berk Kivircik and contributors. GPLv3.",
         "CFBundleDocumentTypes": [{"CFBundleTypeName": "Text document", "CFBundleTypeRole": "Editor",
@@ -63,6 +64,9 @@ def main():
     }
     with (bundle / "Info.plist").open("wb") as file:
         plistlib.dump(info, file)
+    iconset = output / "NoteX.iconset"
+    subprocess.run(["xcrun", "swift", str(ROOT / "macOS/make_icon.swift"), str(iconset)], check=True)
+    subprocess.run(["iconutil", "-c", "icns", str(iconset), "-o", str(resources / "NoteX.icns")], check=True)
     for name in ["LICENSE", "THIRD_PARTY_NOTICES.md", "MODIFICATIONS.md"]:
         shutil.copy2(ROOT / name, resources / name)
     shutil.copytree(ROOT / "LICENSES", resources / "LICENSES")
