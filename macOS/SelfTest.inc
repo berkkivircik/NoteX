@@ -21,7 +21,7 @@ static void Bold24(ScintillaView *view) {
     Check([self.storage.directory.lastPathComponent hasPrefix:@"test-"], "test profile guard");
     if([mode isEqual:@"suite"])Check(!self.sidebarVisible&&self.workspace.view.superview==nil,"new profiles start with the sidebar hidden");
     NSError *error = nil;
-    if ([@[@"ui-sidebar-hidden",@"ui-toolbar",@"ui-split",@"ui-search",@"ui-preferences",@"ui-shortcuts",@"ui-language",@"ui-theme"] containsObject:mode]) { [self workbenchUI:mode]; return; }
+    if ([@[@"ui-tabs",@"ui-document-map",@"ui-sidebar-hidden",@"ui-toolbar",@"ui-split",@"ui-search",@"ui-preferences",@"ui-shortcuts",@"ui-language",@"ui-theme"] containsObject:mode]) { [self workbenchUI:mode]; return; }
     if ([mode hasPrefix:@"ui-"]) {
         NSString *path = [self.storage.directory stringByAppendingPathComponent:@"example.py"];
         NSData *code = [@"# NoteX native workspace example\n\nclass Notebook:\n    def add_note(self, title):\n        return title.strip()\n\ndef main():\n    notebook = Notebook()\n    return notebook.add_note('Hello, NoteX')\n" dataUsingEncoding:NSUTF8StringEncoding];

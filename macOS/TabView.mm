@@ -47,7 +47,7 @@
         _headerHeight=32;
     }return self;
 }
-- (NSRect)contentRect { NSRect r=self.bounds;r.size.height=MAX(0,r.size.height-self.headerHeight);return r; }
+- (NSRect)contentRect { NSRect r=self.bounds;r.size.height=MAX(0,r.size.height-self.headerHeight);if(self.isFlipped)r.origin.y=self.headerHeight;if(self.overview)r.size.width=MAX(0,r.size.width-120);return r; }
 - (void)previous:(id)sender { if(self.numberOfTabViewItems)[self selectTabViewItemAtIndex:([self indexOfTabViewItem:self.selectedTabViewItem]+self.numberOfTabViewItems-1)%self.numberOfTabViewItems]; }
 - (void)next:(id)sender { if(self.numberOfTabViewItems)[self selectTabViewItemAtIndex:([self indexOfTabViewItem:self.selectedTabViewItem]+1)%self.numberOfTabViewItems]; }
 - (void)choose:(id)sender { if(self.chooseDocument)self.chooseDocument(); }
@@ -55,7 +55,7 @@
 - (void)close:(NSButton *)sender { if(self.closeDocument)self.closeDocument(sender.tag); }
 - (void)selectTabViewItem:(NSTabViewItem *)item { [super selectTabViewItem:item];[self refreshTabs]; }
 - (void)setFrameSize:(NSSize)size { [super setFrameSize:size];[self refreshTabs]; }
-- (void)layout { [super layout];[self refreshTabs];self.selectedTabViewItem.view.frame=self.contentRect; }
+- (void)layout { [super layout];[self refreshTabs];self.selectedTabViewItem.view.frame=self.contentRect;if(self.overview){NSRect r=self.contentRect;r.origin.x=NSMaxX(r);r.size.width=120;self.overview.frame=r;} }
 - (void)refreshTabs {
     if(!self.tabScroll)return;
     NSMutableString *signature=[NSMutableString stringWithFormat:@"%.0f/%.0f/%ld",self.bounds.size.width,self.bounds.size.height,(long)[self indexOfTabViewItem:self.selectedTabViewItem]];
@@ -76,9 +76,9 @@
         x+=width+2;++i;
     }
     self.headerHeight=MIN(y+28,MIN(112,MAX(28,self.bounds.size.height/4)))+4;
-    self.tabScroll.frame=NSMakeRect(0,self.bounds.size.height-self.headerHeight,available,self.headerHeight);
+    self.tabScroll.frame=NSMakeRect(0,self.isFlipped?0:self.bounds.size.height-self.headerHeight,available,self.headerHeight);
     self.tabCanvas.frame=NSMakeRect(0,0,available-14,MAX(y+28,self.headerHeight));
-    _previous.frame=NSMakeRect(available,self.bounds.size.height-30,32,28);_next.frame=NSMakeRect(available+34,self.bounds.size.height-30,32,28);_all.frame=NSMakeRect(available+68,self.bounds.size.height-30,36,28);
+    _previous.frame=NSMakeRect(available,self.isFlipped?0:self.bounds.size.height-30,32,28);_next.frame=NSMakeRect(available+34,self.isFlipped?0:self.bounds.size.height-30,32,28);_all.frame=NSMakeRect(available+68,self.isFlipped?0:self.bounds.size.height-30,36,28);
     self.selectedTabViewItem.view.frame=self.contentRect;
     [self.tabCanvas scrollRectToVisible:selected];
 }

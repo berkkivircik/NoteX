@@ -31,6 +31,7 @@
     [self item:edit title:@"Column Editor…" action:@selector(columnEditor:) key:@"" tag:0];
     [self item:edit title:@"Character Viewer" action:@selector(characterViewer:) key:@"" tag:0];
     [self item:view title:@"Full Screen" action:@selector(viewCommand:) key:@"" tag:0];
+    [self item:view title:@"Document Map" action:@selector(viewCommand:) key:@"" tag:4];
     [self item:view title:@"Document Summary" action:@selector(viewCommand:) key:@"" tag:1];
     [self item:view title:@"Left-to-Right Text" action:@selector(viewCommand:) key:@"" tag:2];
     [self item:view title:@"Right-to-Left Text" action:@selector(viewCommand:) key:@"" tag:3];

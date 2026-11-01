@@ -18,6 +18,7 @@
 #import "NativeEditor.h"
 #import "TabView.h"
 #import "Chooser.h"
+#import "DocumentMap.h"
 #import <CommonCrypto/CommonDigest.h>
 
 static sptr_t Send(ScintillaView *view, unsigned message, uptr_t w = 0, sptr_t l = 0) {
@@ -138,6 +139,10 @@ static void Alert(NSString *message) {
 @property NSDictionary *searchScopeRecord;
 @property NSNumber *lastZeroMatch;
 @property NSStringEncoding openingEncoding;
+@property NXDocumentMap *documentMap;
+@property NSMutableArray *clipboardHistory;
+@property NXMenuLayout *contextLayout;
+@property NSMenu *editorContextMenu;
 - (NXDocument *)current;
 - (NXDocument *)restoreDocumentRecord:(NSDictionary *)record;
 - (NXDocument *)newDocument:(id)sender;
@@ -261,6 +266,16 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
 - (void)checkMonitoredFiles;
 - (void)buildSessionMenus;
 @end
+@interface NXApp (ClipboardCommands)
+- (void)cut:(id)sender;
+- (void)copy:(id)sender;
+- (void)paste:(id)sender;
+- (void)clipboardCommand:(id)sender;
+- (void)clipboardHistoryCommand:(id)sender;
+- (void)pasteRich:(id)sender;
+- (void)customizeContextMenu:(id)sender;
+- (void)buildClipboardMenus;
+@end
 @implementation NXApp
 - (NXDocument *)current {
     if(self.secondaryVisible && self.secondaryFocused && self.secondaryDocument) return self.secondaryDocument;
@@ -342,6 +357,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
     [self buildEncodingMenus];
     [self buildLanguageMenu];
     [self buildSessionMenus];
+    [self buildClipboardMenus];
 }
 - (void)buildWindow {
     self.window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 1120, 740)
@@ -438,7 +454,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
         CTFontManagerRegisterFontsForURL((__bridge CFURLRef)url, kCTFontManagerScopeProcess, nil);
     }
     self.documents = [NSMutableArray new];
-    self.closedPaths=[NSMutableArray new];
+    self.closedPaths=[NSMutableArray new];self.clipboardHistory=[NSMutableArray new];
     self.searchOptions=[@{@"matchCase":@NO,@"wholeWord":@NO,@"regex":@NO,@"engine":@"boost",@"selection":@NO} mutableCopy];
     self.dark = YES; self.wrap = YES; self.restoring = YES;
     NSError *error = nil;
@@ -468,6 +484,9 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
     [self buildMenus];
     self.menuLayout = [[NXMenuLayout alloc] initWithMenu:NSApp.mainMenu settings:session[@"menuLayout"]];
     self.menuLayout.commit = ^BOOL(NSError **saveError) { return [weakSelf snapshot:saveError]; };
+    self.editorContextMenu=[NSMenu new];
+    for(NSString *title in @[@"Edit",@"Format",@"Bookmarks"]){NSMenuItem *item=[NSMenuItem new];item.title=title;item.submenu=[[NSApp.mainMenu itemWithTitle:title].submenu copy];[self.editorContextMenu addItem:item];}
+    self.contextLayout=[[NXMenuLayout alloc]initWithMenu:self.editorContextMenu settings:session[@"contextLayout"]];self.contextLayout.commit=^BOOL(NSError **saveError){return [weakSelf snapshot:saveError];};[self.contextLayout apply];
     [self.menuLayout apply];
     [self buildWindow];
     self.window.appearance = [NSAppearance appearanceNamed:self.dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
@@ -527,6 +546,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
     NSInteger encoding=[self.preferences[@"defaultEncoding"] integerValue];doc.encoding=encoding<2?NSUTF8StringEncoding:encoding==2?NSUTF16LittleEndianStringEncoding:NSUTF16BigEndianStringEncoding;doc.bom=encoding!=0;
     doc.editor = [[NXEditor alloc] initWithFrame:NSMakeRect(0, 0, 1000, 620)];
     __weak NXApp *owner = self;
+    ((NXEditor *)doc.editor).editorContextMenu=^NSMenu *{return owner.editorContextMenu;};
     ((NXEditor *)doc.editor).newline = ^BOOL(ScintillaView *view) { return [owner insertEditorNewline:view]; };
     doc.editor.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     Send(doc.editor, SCI_SETCODEPAGE, SC_CP_UTF8);
@@ -599,6 +619,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
     [self recordNotification:notification];
 }
 - (void)updateControls {
+    if(self.documentMap){self.documentMap.editor=self.current.editor;self.documentMap.needsDisplay=YES;}
     NXDocument *doc = self.current;
     if (!doc) return;
     for(NXDocument *document in self.documents)[self updateLineNumberMargin:document.primaryEditor];
@@ -630,7 +651,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
     for (NXDocument *doc in self.documents) [documents addObject:doc.record];
     NSDictionary *session = @{@"schema":@1, @"documents":documents,
         @"selected":@([self.tabs indexOfTabViewItem:self.tabs.selectedTabViewItem]), @"dark":@(self.dark), @"wrap":@(self.wrap),
-        @"workspace":self.workspace.record ?: @{}, @"menuLayout":self.menuLayout.settings ?: @{},
+        @"contextLayout":self.contextLayout.settings ?: @{}, @"workspace":self.workspace.record ?: @{}, @"menuLayout":self.menuLayout.settings ?: @{},
         @"preferences":[self.preferences copy] ?: @{}, @"macros":[self.macros copy] ?: @[], @"sidebarVisible":@(self.sidebarVisible),
         @"configuration":[self.configuration copy],@"secondary":[self secondaryRecord]};
     if ([session isEqual:self.lastSnapshot]) return YES;
@@ -864,6 +885,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
 #include "SessionCommands.inc"
 #include "EncodingCommands.inc"
 #include "TextCommands.inc"
+#include "ClipboardCommands.inc"
 #include "SearchCommands.inc"
 #include "Editing.inc"
 #include "Features.inc"

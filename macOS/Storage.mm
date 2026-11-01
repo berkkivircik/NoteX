@@ -113,8 +113,8 @@ NSDictionary *NXDecodeSession(NSData *data) {
             if (![project isKindOfClass:NSDictionary.class] || !NXValidateProject(project[@"root"], &count, 0) || ![project[@"path"] isKindOfClass:NSString.class] || ![project[@"hash"] isKindOfClass:NSData.class] || ![project[@"dirty"] isKindOfClass:NSNumber.class]) return nil;
         }
     }
-    if (root[@"menuLayout"]) {
-        id layout = root[@"menuLayout"];
+    for(NSString *layoutKey in @[@"menuLayout",@"contextLayout"]) if (root[layoutKey]) {
+        id layout = root[layoutKey];
         if (![layout isKindOfClass:NSDictionary.class] || ![layout[@"order"] isKindOfClass:NSDictionary.class] || ![layout[@"hidden"] isKindOfClass:NSArray.class]) return nil;
         for (id key in layout[@"order"]) {
             if (![key isKindOfClass:NSString.class] || ![layout[@"order"][key] isKindOfClass:NSArray.class]) return nil;

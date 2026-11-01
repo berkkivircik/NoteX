@@ -4,6 +4,10 @@
 @interface NXContent : SCIContentView
 @end
 @implementation NXContent
+- (NSMenu *)menuForEvent:(NSEvent *)event {
+    NSView *view=self;while(view&&![view isKindOfClass:NXEditor.class])view=view.superview;
+    NXEditor *editor=(NXEditor *)view;return editor.editorContextMenu?editor.editorContextMenu():[super menuForEvent:event];
+}
 - (void)keyDown:(NSEvent *)event {
     if (![self hasMarkedText] && (event.keyCode == 36 || event.keyCode == 76) &&
         !(event.modifierFlags & (NSEventModifierFlagCommand | NSEventModifierFlagControl | NSEventModifierFlagOption | NSEventModifierFlagShift))) {

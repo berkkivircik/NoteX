@@ -17,9 +17,21 @@
     Send(view,SCI_MARKERADD,1,0);[self bookmarkLines:TestCommand(2)];Check([view.string isEqual:@"a\nc"],"remove bookmarked line retains neighboring lines");
     SetText(view,[@"AbC" dataUsingEncoding:NSUTF8StringEncoding]);Send(view,SCI_SETSEL,0,3);[self caseOperation:TestCommand(2)];Check([view.string isEqual:@"aBc"],"invert selected case");
     SetText(view,[@"abc" dataUsingEncoding:NSUTF8StringEncoding]);Send(view,SCI_SETSEL,0,3);[self hashCommand:TestCommand(2)];Check([[NSPasteboard.generalPasteboard stringForType:NSPasteboardTypeString] isEqual:@"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"],"SHA-256 selection matches published test vector");
-    NSUInteger first=self.documents.count;for(NSUInteger i=0;i<100;++i){NXDocument *extra=[self newDocument:nil];extra.title=[NSString stringWithFormat:@"Document %lu",(unsigned long)i];}
+    NSError *error=nil;
+    NSArray *boost=NXSearchMatches(@"café 12 📝\nnext 34",@{@"query":@"([0-9]+)",@"replacement":@"<$1>",@"regex":@YES,@"engine":@"boost",@"matchCase":@YES},&error);
+    Check(boost.count==2&&[boost[0][@"position"] integerValue]==6&&[boost[0][@"replacement"] isEqual:@"<12>"],"Boost regex preserves UTF-8 positions and capture replacements");
+    Check(NXSearchMatches(@"text",@{@"query":@"[",@"regex":@YES,@"engine":@"boost"},&error)==nil,"invalid Boost regex fails before editing");
+    SetText(view,[@"one two one" dataUsingEncoding:NSUTF8StringEncoding]);self.findText.stringValue=@"one";self.replaceText.stringValue=@"three";[self searchReplace:TestCommand(1)];Check([view.string isEqual:@"three two three"],"replace all applies the computed document search plan");Send(view,SCI_UNDO);Check([view.string isEqual:@"one two one"],"replace all undoes in one action");
+    Check(NXLanguageCatalog().count>=90,"shared catalog includes Windows language definitions");
+    for(NSDictionary *language in NXLanguageCatalog()){auto *lexer=CreateLexer([language[@"lexer"] UTF8String]);Check(lexer!=nullptr,"shared language has a linked native lexer");if(lexer)lexer->Release();}
+    Check(NXLegacyEncodings().count>=20,"native legacy encoding choices are available");
+    NSStringEncoding turkish=CFStringConvertEncodingToNSStringEncoding(CFStringConvertWindowsCodepageToEncoding(1254));NSData *encoded=[@"Türkçe İstanbul" dataUsingEncoding:turkish allowLossyConversion:NO];Check([[[NSString alloc]initWithData:encoded encoding:turkish] isEqual:@"Türkçe İstanbul"],"Turkish legacy encoding round trip is lossless");
+    Check([@"📝" dataUsingEncoding:turkish allowLossyConversion:NO]==nil,"unrepresentable legacy characters reject conversion");
+    SetText(view,[@"Rich café" dataUsingEncoding:NSUTF8StringEncoding]);Bold24(view);Send(view,SCI_SETSEL,0,Send(view,SCI_GETLENGTH));[self copyRichText:nil];SetText(view,NSData.data);[self pasteRich:TestCommand(0)];Check([view.string isEqual:@"Rich café"]&&!State(view).runs.empty(),"RTF paste preserves Unicode and inline formatting");Send(view,SCI_UNDO);Check(Text(view).length==0,"RTF text and formatting undo together");
+        NSUInteger first=self.documents.count;for(NSUInteger i=0;i<100;++i){NXDocument *extra=[self newDocument:nil];extra.title=[NSString stringWithFormat:@"Document %lu",(unsigned long)i];}
     [self tick:nil];[self.window.contentView layoutSubtreeIfNeeded];NXTabView *tabs=(NXTabView *)self.tabs;[tabs refreshTabs];
     Check(tabs.tabViewType==NSNoTabsNoBorder&&tabs.headerHeight<=116&&tabs.tabCanvas.frame.size.height>tabs.tabScroll.frame.size.height,"100 documents wrap into a bounded scrolling tab strip");
+    NSRect header=[tabs.tabScroll convertRect:tabs.tabScroll.bounds toView:nil],editor=[tabs.selectedTabViewItem.view convertRect:tabs.selectedTabViewItem.view.bounds toView:nil];Check(NSMinY(header)>=NSMaxY(editor)-1,"document tabs stay above the editor in AppKit flipped coordinates");
     NSView *firstButton=tabs.tabCanvas.subviews.firstObject;Check(firstButton.frame.origin.x==0,"first document tab is left aligned");
     NXDocument *last=self.documents.lastObject;[self moveTabFrom:self.documents.count-1 to:0];Check(self.documents.firstObject==last&&self.tabs.selectedTabViewItem==last.tab,"moving a tab preserves document identity and selection");
     [self tabCommand:TestCommand(4)];Check(last.pinned&&[last.record[@"pinned"] boolValue],"tab pin is included in recovery record");

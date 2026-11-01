@@ -130,6 +130,8 @@ static void CancelNextDialog(void) {
     if(![mode isEqual:@"ui-split"])[self closeSecondary:nil];
     if([mode isEqual:@"ui-sidebar-hidden"]){SetText(doc.primaryEditor,NSData.data);[self updateControls];Check(!self.sidebarVisible&&self.editorSplit.frame.origin.x<1,"hidden-sidebar UI uses full editor width");}
     if([mode isEqual:@"ui-toolbar"]){SetText(doc.primaryEditor,[@"First item\nSecond item\n\nFirst step\nSecond step" dataUsingEncoding:NSUTF8StringEncoding]);Send(doc.primaryEditor,SCI_SETSEL,0,Send(doc.primaryEditor,SCI_POSITIONFROMLINE,2));[self.bulletListButton performClick:nil];Send(doc.primaryEditor,SCI_SETSEL,Send(doc.primaryEditor,SCI_POSITIONFROMLINE,3),Send(doc.primaryEditor,SCI_GETLENGTH));[self.numberedListButton performClick:nil];Send(doc.primaryEditor,SCI_GOTOPOS,0);}
+    if([mode isEqual:@"ui-tabs"]){for(NSUInteger i=0;i<30;++i){NXDocument *tab=[self newDocument:nil];tab.title=[NSString stringWithFormat:@"Document %lu.txt",(unsigned long)i+1];}[self.tabs selectTabViewItemAtIndex:3];[self tick:nil];}
+    if([mode isEqual:@"ui-document-map"])[self viewCommand:TestCommand(4)];
     if([mode isEqual:@"ui-search"]){[self findInFiles:nil];NSTextField *query=[self.fileSearch valueForKey:@"query"];query.stringValue=@"NoteX";[(NSPopUpButton *)[self.fileSearch valueForKey:@"scope"] selectItemAtIndex:1];[NSApp sendAction:NSSelectorFromString(@"search:") to:self.fileSearch from:nil];}
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW,2*NSEC_PER_SEC),dispatch_get_main_queue(),^{
         if([mode isEqual:@"ui-sidebar-hidden"]||[mode isEqual:@"ui-toolbar"]){

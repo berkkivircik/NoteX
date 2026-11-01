@@ -9,5 +9,6 @@
 @property NSScrollView *tabScroll;
 @property NSView *tabCanvas;
 @property CGFloat headerHeight;
+@property NSView *overview;
 - (void)refreshTabs;
 @end

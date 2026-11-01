@@ -79,7 +79,7 @@ with tempfile.TemporaryDirectory(prefix="notex-native-tests-") as directory:
             process.wait(timeout=10)
     run(APP, "restore", work / "test-crash")
     if os.environ.get("CI"):
-        for mode in ("ui-sidebar-hidden", "ui-toolbar", "ui-function", "ui-project", "ui-menu", "ui-split", "ui-search", "ui-preferences", "ui-shortcuts", "ui-language", "ui-theme"):
+        for mode in ("ui-tabs", "ui-document-map", "ui-sidebar-hidden", "ui-toolbar", "ui-function", "ui-project", "ui-menu", "ui-split", "ui-search", "ui-preferences", "ui-shortcuts", "ui-language", "ui-theme"):
             log = work / f"{mode}.log"
             with log.open("w") as output:
                 process = subprocess.Popen([str(APP / "Contents/MacOS/NoteX"), "--self-test", mode],
