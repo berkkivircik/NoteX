@@ -22,6 +22,10 @@
     Check(NXAPI(@"python").count>100,"bundled function completion definitions load");
     NSMutableDictionary *syntaxStyle=[NXDefaultStyle() mutableCopy];syntaxStyle[@"lexer"]=@"cpp";syntaxStyle[@"style"]=@5;syntaxStyle[@"fontSize"]=@17;syntaxStyle[@"foreground"]=@"FF0000";
     Check(NXValidateStyles(@[syntaxStyle]),"syntax style overrides validate");NXApplyStyleOverrides(view,@[syntaxStyle],@"cpp");Check(Send(view,SCI_STYLEGETFORE,5)==255&&Send(view,SCI_STYLEGETSIZEFRACTIONAL,5)==1700,"syntax style overrides apply color and fractional font size");
+    NSMutableDictionary *advanced=[NXDefaultLanguage() mutableCopy];[advanced addEntriesFromDictionary:NXAdvancedLanguageDefaults()];advanced[@"advancedRules"]=@YES;advanced[@"keywords1"]=@"begin end";advanced[@"prefixKeywords1"]=@YES;
+    Check(NXValidateAdvancedLanguage(advanced),"advanced native UDL rules validate");SetText(view,[@"beginning \"quoted\" // comment\n{\nend\n}\n" dataUsingEncoding:NSUTF8StringEncoding]);Send(view,SCI_SETILEXER,0,reinterpret_cast<sptr_t>(CreateLexer("user")));NXConfigureUserLanguage(view,advanced,doc.identifier);
+    Check(Send(view,SCI_GETSTYLEAT,0)==SCE_USER_STYLE_KEYWORD1&&Send(view,SCI_GETSTYLEAT,10)==SCE_USER_STYLE_DELIMITER1,"shared UDL engine supports prefix keywords and delimiters");
+    [self configureLexer:doc];
     NSError *error=nil;
     NSArray *boost=NXSearchMatches(@"café 12 📝\nnext 34",@{@"query":@"([0-9]+)",@"replacement":@"<$1>",@"regex":@YES,@"engine":@"boost",@"matchCase":@YES},&error);
     Check(boost.count==2&&[boost[0][@"position"] integerValue]==6&&[boost[0][@"replacement"] isEqual:@"<12>"],"Boost regex preserves UTF-8 positions and capture replacements");
@@ -35,6 +39,7 @@
     SetText(view,[@"Rich café" dataUsingEncoding:NSUTF8StringEncoding]);Bold24(view);Send(view,SCI_SETSEL,0,Send(view,SCI_GETLENGTH));[self copyRichText:nil];SetText(view,NSData.data);[self pasteRich:TestCommand(0)];Check([view.string isEqual:@"Rich café"]&&!State(view).runs.empty(),"RTF paste preserves Unicode and inline formatting");Send(view,SCI_UNDO);Check(Text(view).length==0,"RTF text and formatting undo together");
         NXRunTool *runner=[NXRunTool new];Check([runner launchCommand:@"printf '%s' \"$NOTEX_SELECTION\"" environment:@{@"NOTEX_SELECTION":@"$(not-a-command); café"} error:&error],"launch explicit synthetic native command");
     NSTimeInterval deadline=NSProcessInfo.processInfo.systemUptime+5;while((runner.task.running||!runner.output.length)&&NSProcessInfo.processInfo.systemUptime<deadline)[NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.02]];
+    fprintf(stderr,"Synthetic runner diagnostic: running=%d output=%s bytes=%lu\n",runner.task.running,(runner.output ?: @"<nil>").UTF8String,(unsigned long)runner.captured.length);
     Check([runner.output isEqual:@"$(not-a-command); café"],"document environment is passed as data without shell interpolation");
     NSUInteger first=self.documents.count;for(NSUInteger i=0;i<100;++i){NXDocument *extra=[self newDocument:nil];extra.title=[NSString stringWithFormat:@"Document %lu",(unsigned long)i];}
     [self tick:nil];[self.window.contentView layoutSubtreeIfNeeded];NXTabView *tabs=(NXTabView *)self.tabs;[tabs refreshTabs];

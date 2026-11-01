@@ -21,6 +21,7 @@
 #import "Chooser.h"
 #import "DocumentMap.h"
 #import "RunTool.h"
+#import "UserLanguage.h"
 #import <CommonCrypto/CommonDigest.h>
 
 static sptr_t Send(ScintillaView *view, unsigned message, uptr_t w = 0, sptr_t l = 0) {
@@ -618,7 +619,8 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
     [self configureLexer:doc];
 }
 - (void)configureLexer:(NXDocument *)doc {
-    auto *lexer = [self userLanguage:doc] ? nullptr : CreateLexer(doc.lexer.UTF8String);
+    NSDictionary *custom=[self userLanguage:doc];
+    auto *lexer = custom ? ([custom[@"advancedRules"] boolValue]?CreateLexer("user"):nullptr) : CreateLexer(doc.lexer.UTF8String);
     Send(doc.editor, SCI_SETILEXER, 0, reinterpret_cast<sptr_t>(lexer));
     Send(doc.editor, SCI_SETPROPERTY, reinterpret_cast<uptr_t>("fold"), reinterpret_cast<sptr_t>("1"));
     // Common lexer styles; users can select any bundled Lexilla lexer.
@@ -633,6 +635,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
         Send(doc.editor, SCI_STYLESETFORE, 6, self.dark ? 0x9ac8df : 0x226699);
     }
     NSDictionary *builtIn=NXBuiltIn(doc.builtinLanguage);NSUInteger keyword=0;for(NSString *words in builtIn[@"keywords"])Send(doc.editor,SCI_SETKEYWORDS,keyword++,reinterpret_cast<sptr_t>(words.UTF8String));
+    if([custom[@"advancedRules"] boolValue])NXConfigureUserLanguage(doc.editor,custom,doc.identifier);
     Send(doc.editor, SCI_COLOURISE, 0, -1);
     [self applyUserTheme:doc];
     [self.syntaxHashes removeObjectForKey:doc.identifier];

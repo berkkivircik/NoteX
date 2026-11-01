@@ -2,6 +2,7 @@
 // Native language, theme, and preferences editors, created 2026-11-01.
 #import "Configuration.h"
 #import "Storage.h"
+#import "UserLanguage.h"
 #include <string>
 #include <unordered_set>
 #include <cctype>
@@ -55,6 +56,7 @@ BOOL NXValidateConfiguration(id value) {
             if ([kind isEqual:@"themes"]) for (NSString *key in NXDefaultTheme()) {
                 if (![@[@"id", @"name", @"boldKeywords", @"italicComments"] containsObject:key] && !Color(record[key])) return NO;
             }
+            if([kind isEqual:@"languages"]&&!NXValidateAdvancedLanguage(record))return NO;
             if ([kind isEqual:@"languages"] && ([record[@"blockOpen"] length] == 0) != ([record[@"blockClose"] length] == 0)) return NO;
             if([kind isEqual:@"languages"]){for(NSString *key in @[@"lineComment",@"blockOpen",@"blockClose",@"foldOpen",@"foldClose"])if([record[key] length]>32)return NO;
                 if([record[@"escape"] length]>1||![record[@"quotes"] canBeConvertedToEncoding:NSASCIIStringEncoding]||![record[@"escape"] canBeConvertedToEncoding:NSASCIIStringEncoding])return NO;
@@ -175,12 +177,13 @@ void NXStyleLanguage(ScintillaView *v, NSDictionary *language) {
 - (void)showRecord {
     _controls=[NSMutableDictionary new];NSView *form=[[NSView alloc]initWithFrame:NSMakeRect(0,0,520,100)];_form.documentView=form;
     if(_selected<0||_selected>=(NSInteger)_records.count)return;
-    NSDictionary *record=_records[_selected];
+    NSMutableDictionary *record=_records[_selected];if([_kind isEqual:@"languages"]){NSDictionary *advanced=NXAdvancedLanguageDefaults();for(NSString *key in advanced)if(!record[key])record[key]=advanced[key];}
     NSArray *keys;
     if([_kind isEqual:@"languages"])keys=@[@"name",@"extensions",@"caseSensitive",@"lineComment",@"blockOpen",@"blockClose",@"quotes",@"escape",@"foldOpen",@"foldClose",@"keywords1",@"keywords2",@"keywords3",@"keywords4",@"keywords5",@"keywords6",@"keywords7",@"keywords8"];
     else if([_kind isEqual:@"styles"])keys=@[@"name",@"foreground",@"background",@"font",@"fontSize",@"bold",@"italic",@"underline"];
     else if([_kind isEqual:@"themes"])keys=@[@"name",@"background",@"foreground",@"caret",@"selection",@"lineNumbers",@"currentLine",@"keyword1",@"keyword2",@"keyword3",@"keyword4",@"keyword5",@"keyword6",@"keyword7",@"keyword8",@"string",@"comment",@"number",@"operator",@"boldKeywords",@"italicComments"];
     else keys=@[@"tabWidth",@"useTabs",@"autoIndent",@"braceMatch",@"autoComplete",@"font",@"fontSize",@"lineNumbers",@"whitespace",@"indentGuides",@"showEOL",@"highlightLine",@"wrap",@"dark",@"caretWidth",@"blinkRate",@"edgeColumn",@"snapshotSeconds",@"defaultEncoding",@"defaultEOL"];
+    if([_kind isEqual:@"languages"]){NSMutableArray *expanded=[keys mutableCopy];[expanded addObjectsFromArray:[[NXAdvancedLanguageDefaults() allKeys] sortedArrayUsingSelector:@selector(compare:)]];keys=expanded;}
     NSDictionary *labels=@{@"font":@"Default font family",@"fontSize":@"Font size (6–96)",@"tabWidth":@"Tab width (1–16)",@"useTabs":@"Indent with tabs",@"lineNumbers":@"Line numbers",@"autoIndent":@"Automatic indentation",@"braceMatch":@"Match braces",@"autoComplete":@"Word completion",@"indentGuides":@"Indent guides",@"showEOL":@"Show line endings",@"highlightLine":@"Highlight current line",@"wrap":@"Word wrap",@"dark":@"Dark appearance",@"caretWidth":@"Caret width (1–3)",@"blinkRate":@"Caret blink, ms (0–2000)",@"edgeColumn":@"Column guide (0 = off)",@"snapshotSeconds":@"Recovery interval, sec (1–60)",@"defaultEncoding":@"New files: 0 UTF8, 1 BOM, 2 LE, 3 BE",@"defaultEOL":@"New lines: 0 CRLF, 1 CR, 2 LF",@"extensions":@"Extensions (space separated)",@"lineComment":@"Line comment",@"blockOpen":@"Block comment start",@"blockClose":@"Block comment end",@"quotes":@"String quote characters",@"escape":@"Escape character",@"foldOpen":@"Fold opening token",@"foldClose":@"Fold closing token",@"caseSensitive":@"Case-sensitive keywords",@"boldKeywords":@"Bold keywords",@"italicComments":@"Italic comments"};
     BOOL preferences=[_kind isEqual:@"preferences"];
     NSMutableArray *rows=[NSMutableArray new];
