@@ -5,7 +5,7 @@ NSMutableDictionary *NXReadWorkspace(NSString *path, NSError **error);
 BOOL NXWriteWorkspace(NSDictionary *root, NSString *path, NSError **error);
 BOOL NXValidateProject(id node, NSUInteger *count, unsigned depth);
 
-@interface NXWorkspace : NSViewController <NSOutlineViewDataSource, NSOutlineViewDelegate, NSControlTextEditingDelegate>
+@interface NXWorkspace : NSViewController <NSOutlineViewDataSource, NSOutlineViewDelegate, NSSearchFieldDelegate>
 @property(copy) void (^openFile)(NSString *path);
 @property(copy) void (^goToPosition)(NSInteger position);
 @property(copy) void (^changed)(void);

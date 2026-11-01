@@ -17,7 +17,7 @@ APP = OUTPUT / "NoteX.app"
 results = [{"macOS": platform.mac_ver()[0], "architecture": platform.machine()}]
 
 def run(app, mode, profile):
-    env = dict(os.environ, NOTEX_PROFILE=str(profile), NOTEX_TEST_IMAGE=str(OUTPUT / "native-preview.png"))
+    env = dict(os.environ, NOTEX_PROFILE=str(profile), NOTEX_TEST_SOURCE=str(ROOT), NOTEX_TEST_IMAGE=str(OUTPUT / "native-preview.png"))
     result = subprocess.run([str(app / "Contents/MacOS/NoteX"), "--self-test", mode],
                             env=env, capture_output=True, text=True, timeout=90)
     print(result.stdout, flush=True)

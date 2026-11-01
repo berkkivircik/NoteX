@@ -145,6 +145,7 @@ static void Bold24(ScintillaView *view) {
     Check(bitmap.pixelsWide > 800 && bitmap.pixelsHigh > 400, "native view rendered at expected dimensions");
     NSString *imagePath = NSProcessInfo.processInfo.environment[@"NOTEX_TEST_IMAGE"];
     if (imagePath.length) [[bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}] writeToFile:imagePath atomically:YES];
+    [self featureTests];
     printf("TOTAL %u passed\n", checks); fflush(stdout);
     [NSApp terminate:nil];
 }

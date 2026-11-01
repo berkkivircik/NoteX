@@ -98,23 +98,30 @@ static void Alert(NSString *message) {
 @property BOOL recording;
 @property BOOL playingMacro;
 @property NSData *paintFormat;
-- (void)buildFeatureMenus;
-- (void)applyPreferences:(NXDocument *)doc;
-- (void)recordNotification:(SCNotification *)notification;
-- (void)refreshFunctions;
-- (void)featureTests;
-- (void)playActions:(NSArray *)actions repetitions:(NSUInteger)repetitions;
-- (void)preferencesDialog:(id)sender;
-- (void)customizeMenus:(id)sender;
-- (void)resetMenus:(id)sender;
-- (void)showPanel:(id)sender;
-- (void)toggleSidebar:(id)sender;
 - (NXDocument *)current;
 - (NXDocument *)newDocument:(id)sender;
 - (void)configureLexer:(NXDocument *)doc;
 - (BOOL)snapshot:(NSError **)error;
 - (BOOL)openPath:(NSString *)path error:(NSError **)error;
 - (BOOL)saveDocument:(NXDocument *)doc path:(NSString *)path error:(NSError **)error;
+@end
+
+@interface NXApp (Features)
+- (void)buildFeatureMenus;
+- (void)applyPreferences:(NXDocument *)doc;
+- (void)recordNotification:(SCNotification *)notification;
+- (void)refreshFunctions;
+- (void)playActions:(NSArray *)actions repetitions:(NSUInteger)repetitions;
+- (void)preferencesDialog:(id)sender;
+- (void)customizeMenus:(id)sender;
+- (void)resetMenus:(id)sender;
+- (void)showPanel:(id)sender;
+- (void)toggleSidebar:(id)sender;
+@end
+@interface NXApp (FeatureTests)
+- (void)featureTests;
+@end
+@interface NXApp (Tests)
 - (void)selfTest:(NSString *)mode;
 @end
 
@@ -152,10 +159,10 @@ static void Alert(NSString *message) {
     [app addItem:quit];
     NSMenu *file = [self menu:@"File" parent:root];
     [self item:file title:@"New Tab" action:@selector(newDocument:) key:@"n" tag:0];
-    [self item:file title:@"Openâ€¦" action:@selector(open:) key:@"o" tag:0];
+    [self item:file title:@"Open…" action:@selector(open:) key:@"o" tag:0];
     [self item:file title:@"Save" action:@selector(save:) key:@"s" tag:0];
-    [self item:file title:@"Save Asâ€¦" action:@selector(saveAs:) key:@"S" tag:0];
-    [self item:file title:@"Close Tabâ€¦" action:@selector(closeTab:) key:@"w" tag:0];
+    [self item:file title:@"Save As…" action:@selector(saveAs:) key:@"S" tag:0];
+    [self item:file title:@"Close Tab…" action:@selector(closeTab:) key:@"w" tag:0];
     [file addItem:NSMenuItem.separatorItem];
     [self item:file title:@"Show Session Folder" action:@selector(showSession:) key:@"" tag:0];
     NSMenu *edit = [self menu:@"Edit" parent:root];
@@ -166,16 +173,16 @@ static void Alert(NSString *message) {
         [edit addItem:item];
     }
     [edit addItem:NSMenuItem.separatorItem];
-    [self item:edit title:@"Find and Replaceâ€¦" action:@selector(showFind:) key:@"f" tag:0];
+    [self item:edit title:@"Find and Replace…" action:@selector(showFind:) key:@"f" tag:0];
     [self item:edit title:@"Find Next" action:@selector(findNext:) key:@"g" tag:0];
-    [self item:edit title:@"Go to Lineâ€¦" action:@selector(goToLine:) key:@"l" tag:0];
+    [self item:edit title:@"Go to Line…" action:@selector(goToLine:) key:@"l" tag:0];
     NSMenu *format = [self menu:@"Format" parent:root];
     [self item:format title:@"Bold" action:@selector(toggleFormat:) key:@"b" tag:NoteX::Bold];
     [self item:format title:@"Italic" action:@selector(toggleFormat:) key:@"i" tag:NoteX::Italic];
     [self item:format title:@"Underline" action:@selector(toggleFormat:) key:@"u" tag:NoteX::Underline];
     [self item:format title:@"Strikethrough" action:@selector(toggleFormat:) key:@"" tag:NoteX::Strike];
-    [self item:format title:@"Text Colorâ€¦" action:@selector(pickColor:) key:@"" tag:NoteX::Fore];
-    [self item:format title:@"Highlight Colorâ€¦" action:@selector(pickColor:) key:@"" tag:NoteX::Highlight];
+    [self item:format title:@"Text Color…" action:@selector(pickColor:) key:@"" tag:NoteX::Fore];
+    [self item:format title:@"Highlight Color…" action:@selector(pickColor:) key:@"" tag:NoteX::Highlight];
     [self item:format title:@"Clear Formatting" action:@selector(clearFormat:) key:@"" tag:0];
     [self item:format title:@"Bulleted List" action:@selector(makeList:) key:@"" tag:0];
     [self item:format title:@"Numbered List" action:@selector(makeList:) key:@"" tag:1];
@@ -375,6 +382,7 @@ static void Alert(NSString *message) {
 - (void)configureLexer:(NXDocument *)doc {
     auto *lexer = CreateLexer(doc.lexer.UTF8String);
     Send(doc.editor, SCI_SETILEXER, 0, reinterpret_cast<sptr_t>(lexer));
+    Send(doc.editor, SCI_SETPROPERTY, reinterpret_cast<uptr_t>("fold"), reinterpret_cast<sptr_t>("1"));
     // Common lexer styles; users can select any bundled Lexilla lexer.
     if ([doc.lexer isEqual:@"cpp"] || [doc.lexer isEqual:@"python"]) {
         const char *keywords = [doc.lexer isEqual:@"python"] ?
@@ -404,7 +412,7 @@ static void Alert(NSString *message) {
     self.family.stringValue = (query.value.mask & NoteX::Family) ? @(query.value.family.c_str()) : self.preferences[@"font"];
     self.size.stringValue = [NSString stringWithFormat:@"%g", (query.value.mask & NoteX::Size) ? query.value.size / 100.0 : [self.preferences[@"fontSize"] doubleValue]];
     [self.language selectItemWithTitle:[doc.lexer isEqual:@"null"] ? @"Plain Text" : doc.lexer];
-    self.window.title = [NSString stringWithFormat:@"%@%@ â€” NoteX", doc.title, doc.dirty ? @" â€¢" : @""];
+    self.window.title = [NSString stringWithFormat:@"%@%@ — NoteX", doc.title, doc.dirty ? @" •" : @""];
     if (!self.snapshotFailed) self.status.stringValue = [NSString stringWithFormat:@"  Line %ld   Column %ld   %@   %lu characters",
         (long)Send(doc.editor, SCI_LINEFROMPOSITION, Send(doc.editor, SCI_GETCURRENTPOS)) + 1,
         (long)Send(doc.editor, SCI_GETCOLUMN, Send(doc.editor, SCI_GETCURRENTPOS)) + 1,
@@ -432,7 +440,7 @@ static void Alert(NSString *message) {
     NSError *error = nil;
     self.snapshotFailed = ![self snapshot:&error];
     if (self.snapshotFailed) self.status.stringValue = [@"Recovery snapshot failed: " stringByAppendingString:error.localizedDescription];
-    for (NXDocument *doc in self.documents) doc.tab.label = [doc.title stringByAppendingString:doc.dirty ? @" â€¢" : @""];
+    for (NXDocument *doc in self.documents) doc.tab.label = [doc.title stringByAppendingString:doc.dirty ? @" •" : @""];
     [self updateControls];
     [self refreshFunctions];
 }
@@ -606,7 +614,7 @@ static void Alert(NSString *message) {
     auto last = Send(view, SCI_LINEFROMPOSITION, Send(view, SCI_GETSELECTIONEND));
     Send(view, SCI_BEGINUNDOACTION);
     for (auto line = last; line >= first; --line) {
-        NSString *prefix = [sender tag] ? [NSString stringWithFormat:@"%ld. ", (long)(line - first + 1)] : @"â€¢ ";
+        NSString *prefix = [sender tag] ? [NSString stringWithFormat:@"%ld. ", (long)(line - first + 1)] : @"• ";
         Send(view, SCI_INSERTTEXT, Send(view, SCI_POSITIONFROMLINE, line), reinterpret_cast<sptr_t>(prefix.UTF8String));
     }
     Send(view, SCI_ENDUNDOACTION); [self tick:nil];
@@ -643,8 +651,8 @@ static void Alert(NSString *message) {
 }
 - (void)about:(id)sender {
     [NSApp orderFrontStandardAboutPanelWithOptions:@{NSAboutPanelOptionApplicationName:@"NoteX",
-        NSAboutPanelOptionApplicationVersion:@"1.3.2 â€” Native macOS Preview 1",
-        NSAboutPanelOptionCredits:[[NSAttributedString alloc] initWithString:@"Native AppKit â€¢ Scintilla â€¢ Lexilla\nCopyright Â© 2026 Berk Kivircik and contributors.\nGNU General Public License version 3.\nSee Help for source, licensing, and preview limitations."]}];
+        NSAboutPanelOptionApplicationVersion:@"1.3.3 — Native macOS Preview 2",
+        NSAboutPanelOptionCredits:[[NSAttributedString alloc] initWithString:@"Native AppKit • Scintilla • Lexilla\nCopyright © 2026 Berk Kivircik and contributors.\nGNU General Public License version 3.\nSee Help for source, licensing, and preview limitations."]}];
 }
 - (void)showSession:(id)sender { [NSWorkspace.sharedWorkspace openURL:[NSURL fileURLWithPath:self.storage.directory]]; }
 - (void)guide:(id)sender { [NSWorkspace.sharedWorkspace openURL:[NSBundle.mainBundle URLForResource:@"README" withExtension:@"md"]]; }

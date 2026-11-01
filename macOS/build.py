@@ -58,7 +58,7 @@ def main():
         "CFBundleVersion": BUILD, "LSMinimumSystemVersion": "14.0",
         "CFBundleIconFile": "NoteX.icns",
         "NSHighResolutionCapable": True, "NSPrincipalClass": "NSApplication",
-        "NSHumanReadableCopyright": "Copyright Ã‚Â© 2026 Berk Kivircik and contributors. GPLv3.",
+        "NSHumanReadableCopyright": "Copyright Â© 2026 Berk Kivircik and contributors. GPLv3.",
         "CFBundleDocumentTypes": [{"CFBundleTypeName": "Text document", "CFBundleTypeRole": "Editor",
                                    "LSHandlerRank": "Alternate", "LSItemContentTypes": ["public.text", "public.source-code"]}],
     }
