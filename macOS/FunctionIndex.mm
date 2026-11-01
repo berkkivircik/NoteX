@@ -55,7 +55,7 @@ class Indexer {
     }
     template<class Callback> void each(const std::string &expr, Span zone, Callback callback) {
         if (expr.empty() || zone.start >= zone.end) return;
-        boost::regex regex(expr, boost::regex::perl);
+        boost::regex regex(expr, boost::regex::perl | boost::regex::icase);
         boost::match_results<std::string::const_iterator> match;
         size_t cursor = zone.start;
         while (cursor < zone.end) {
@@ -84,7 +84,7 @@ class Indexer {
     }
     size_t closing(size_t start, size_t end, const std::string &open, const std::string &close) {
         if (open.empty() || close.empty()) return end;
-        boost::regex opening(open, boost::regex::perl);
+        boost::regex opening(open, boost::regex::perl | boost::regex::icase);
         size_t depth = 1, result = end;
         each("(?:" + open + ")|(?:" + close + ")", {start, end}, [&](Span s) {
             if (inside(s.start, comments)) return true;

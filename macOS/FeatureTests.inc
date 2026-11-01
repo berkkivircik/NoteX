@@ -63,16 +63,21 @@ static NSMenuItem *FindMenuCommand(NSMenu *menu, SEL action, NSInteger tag) {
 
     NSString *source = NSProcessInfo.processInfo.environment[@"NOTEX_TEST_SOURCE"];
     Check(source.length > 0, "explicit source directory for upstream fixtures");
-    for (NSString *language in @[@"cpp", @"python", @"javascript", @"xml"]) {
+    BOOL allFunctionFixturesMatch = YES; NSUInteger fixtureCount = 0;
+    NSArray *languages = [[NSFileManager.defaultManager contentsOfDirectoryAtPath:[source stringByAppendingPathComponent:@"PowerEditor/Test/FunctionList"] error:nil] sortedArrayUsingSelector:@selector(compare:)];
+    for (NSString *language in languages) {
+        NSString *ruleName = [language isEqual:@"javascript"] ? @"javascript.js" : [language isEqual:@"udl-NppExec"] ? @"nppexec" : language;
+        NSString *rule = [NSBundle.mainBundle.resourcePath stringByAppendingPathComponent:[NSString stringWithFormat:@"functionList/%@.xml", ruleName]];
+        if (![NSFileManager.defaultManager fileExistsAtPath:rule]) continue;
         NSString *fixture = [source stringByAppendingPathComponent:[@"PowerEditor/Test/FunctionList" stringByAppendingPathComponent:language]];
         NSData *input = [NSData dataWithContentsOfFile:[fixture stringByAppendingPathComponent:@"unitTest"]];
         NSDictionary *expected = [NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:[fixture stringByAppendingPathComponent:@"unitTest.expected.result"]] options:0 error:nil];
-        NSString *rule = [NSBundle.mainBundle.resourcePath stringByAppendingPathComponent:[NSString stringWithFormat:@"functionList/%@.xml", [language isEqual:@"javascript"] ? @"javascript.js" : language]];
+        ++fixtureCount;
         error = nil; NSArray *symbols = NXFunctionIndex(input, rule, &error);
         if (error) fprintf(stderr, "Function List error %s: %s\n", language.UTF8String, error.localizedDescription.UTF8String);
-        Check(symbols && !error, [NSString stringWithFormat:@"parse upstream %@ fixture", language].UTF8String);
+        if (!symbols || error) { allFunctionFixturesMatch = NO; continue; }
         NSMutableDictionary *actual = [NSMutableDictionary new], *wanted = [NSMutableDictionary new];
-        actual[@""] = [NSMutableArray new]; wanted[@""] = expected[@"leaves"];
+        actual[@""] = [NSMutableArray new]; wanted[@""] = expected[@"leaves"] ?: @[];
         for (NSDictionary *group in expected[@"nodes"]) wanted[group[@"name"]] = group[@"leaves"];
         for (NSDictionary *symbol in symbols) if ([symbol[@"kind"] isEqual:@"function"]) {
             NSString *scope = symbol[@"scope"];
@@ -83,8 +88,11 @@ static NSMenuItem *FindMenuCommand(NSMenu *menu, SEL action, NSInteger tag) {
         for (NSString *key in [actual.allKeys copy]) actual[key] = [actual[key] sortedArrayUsingSelector:@selector(compare:)];
         for (NSString *key in [wanted.allKeys copy]) wanted[key] = [wanted[key] sortedArrayUsingSelector:@selector(compare:)];
         if (![actual isEqual:wanted]) fprintf(stderr, "Function List mismatch %s\nActual: %s\nExpected: %s\n", language.UTF8String, actual.description.UTF8String, wanted.description.UTF8String);
-        Check([actual isEqual:wanted], [NSString stringWithFormat:@"match Windows %@ Function List expected symbols", language].UTF8String);
+        if (![actual isEqual:wanted]) allFunctionFixturesMatch = NO;
+        else Check(YES, [NSString stringWithFormat:@"match Windows %@ Function List expected symbols", language].UTF8String);
     }
+    Check(fixtureCount == 41, "exercise every bundled parser with an upstream fixture");
+    Check(allFunctionFixturesMatch, "all bundled upstream Function List fixtures match Windows");
     NSString *rule = NXFunctionRule(@"unicode.py", @"python");
     NSData *unicode = [@"# café 日本語\n# def fake():\n#     pass\ndef real(value):\n    return value\n" dataUsingEncoding:NSUTF8StringEncoding];
     NSArray *symbols = NXFunctionIndex(unicode, rule, &error);

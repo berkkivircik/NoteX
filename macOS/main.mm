@@ -380,6 +380,9 @@ static void Alert(NSString *message) {
     Send(doc.editor, SCI_STYLESETFORE, STYLE_DEFAULT, fore);
     Send(doc.editor, SCI_STYLECLEARALL);
     Send(doc.editor, SCI_STYLESETFORE, STYLE_LINENUMBER, self.dark ? 0xaaa299 : 0x777777);
+    Send(doc.editor, SCI_STYLESETBACK, STYLE_LINENUMBER, back);
+    Send(doc.editor, SCI_SETFOLDMARGINCOLOUR, 1, back);
+    Send(doc.editor, SCI_SETFOLDMARGINHICOLOUR, 1, back);
     Send(doc.editor, SCI_SETCARETFORE, self.dark ? 0xc5d9ff : 0x222222);
     Send(doc.editor, SCI_SETSELBACK, 1, self.dark ? 0x765637 : 0xeedbb7);
     Send(doc.editor, SCI_SETSELFORE, 0, 0);
