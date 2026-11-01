@@ -90,6 +90,7 @@ BOOL NXWriteWorkspace(NSDictionary *root, NSString *path, NSError **error) {
     NSMutableArray *_folders;
     NSArray *_symbols;
     NSArray *_rows;
+    NSArray *_folderRows;
     NSPopUpButton *_panel;
     NSSearchField *_filter;
     NSOutlineView *_tree;
@@ -234,8 +235,8 @@ BOOL NXWriteWorkspace(NSDictionary *root, NSString *path, NSError **error) {
         }
         base = roots;
     } else if (_mode <= 3) base = @[_projects[_mode - 1]];
-    else base = _rows ?: @[];
-    if (_mode != 4) _rows = [self filterNodes:base];
+    else base = _folderRows ?: @[];
+    _rows = [self filterNodes:base];
     [_tree reloadData];
     for (NSUInteger i = 0; i < _buttons.count; ++i) _buttons[i].hidden = _mode == 0 ? ![@[@9, @10, @11] containsObject:@(i)] : _mode == 4 ? ![@[@0, @3, @9] containsObject:@(i)] : [@[@10, @11] containsObject:@(i)];
     if (_mode >= 1 && _mode <= 3) _status.stringValue = [_dirty[_mode - 1] boolValue] ? @"Workspace changes are recovered automatically. Save XML to export them." : @"Double-click a file to open it. Remove only removes the reference.";
@@ -399,7 +400,7 @@ BOOL NXWriteWorkspace(NSDictionary *root, NSString *path, NSError **error) {
     if (_mode == 4) {
         NSMutableArray *roots = [NSMutableArray new]; NSUInteger count = 0; NSError *error = nil;
         for (NSString *folder in _folders) { NSMutableDictionary *node = [self nodeFromPath:folder depth:0 count:&count error:&error]; if (node) [roots addObject:node]; }
-        _rows = [self filterNodes:roots]; _status.stringValue = error ? error.localizedDescription : @"Folder contents refresh on request. Double-click a file to open it.";
+        _folderRows = roots; _status.stringValue = error ? error.localizedDescription : @"Folder contents refresh on request. Double-click a file to open it.";
     }
     [self refreshRows];
 }

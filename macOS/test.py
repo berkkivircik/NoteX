@@ -18,8 +18,13 @@ results = [{"macOS": platform.mac_ver()[0], "architecture": platform.machine()}]
 
 def run(app, mode, profile):
     env = dict(os.environ, NOTEX_PROFILE=str(profile), NOTEX_TEST_SOURCE=str(ROOT), NOTEX_TEST_IMAGE=str(OUTPUT / "native-preview.png"))
-    result = subprocess.run([str(app / "Contents/MacOS/NoteX"), "--self-test", mode],
-                            env=env, capture_output=True, text=True, timeout=90)
+    try:
+        result = subprocess.run([str(app / "Contents/MacOS/NoteX"), "--self-test", mode],
+                                env=env, capture_output=True, text=True, timeout=90)
+    except subprocess.TimeoutExpired as error:
+        print(error.stdout, flush=True)
+        print(error.stderr, flush=True)
+        raise
     print(result.stdout, flush=True)
     if result.returncode:
         print(result.stderr, flush=True)

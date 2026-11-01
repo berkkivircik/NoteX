@@ -1,6 +1,7 @@
 // Copyright (C) 2026 Berk Kivircik. SPDX-License-Identifier: GPL-3.0-only
 // Native macOS storage, created 2026-11-01.
 #import "Storage.h"
+#import "Workspace.h"
 #import <CommonCrypto/CommonDigest.h>
 #include <fcntl.h>
 #include <sys/file.h>
@@ -84,6 +85,43 @@ static NSDictionary *DecodeSession(NSData *data) {
         ![root[@"documents"] isKindOfClass:NSArray.class] || ![root[@"selected"] isKindOfClass:NSNumber.class]) return nil;
     NSArray *documents = root[@"documents"];
     if (documents.count > 1000) return nil;
+    // Optional fields preserve compatibility with the first native release.
+    // Reject damaged additions instead of silently resetting project or macro data.
+    if (root[@"workspace"]) {
+        id workspace = root[@"workspace"];
+        if (![workspace isKindOfClass:NSDictionary.class] || ![workspace[@"projects"] isKindOfClass:NSArray.class] || [workspace[@"projects"] count] != 3 || ![workspace[@"folders"] isKindOfClass:NSArray.class]) return nil;
+        for (id path in workspace[@"folders"]) if (![path isKindOfClass:NSString.class]) return nil;
+        for (id project in workspace[@"projects"]) {
+            NSUInteger count = 0;
+            if (![project isKindOfClass:NSDictionary.class] || !NXValidateProject(project[@"root"], &count, 0) || ![project[@"path"] isKindOfClass:NSString.class] || ![project[@"hash"] isKindOfClass:NSData.class] || ![project[@"dirty"] isKindOfClass:NSNumber.class]) return nil;
+        }
+    }
+    if (root[@"menuLayout"]) {
+        id layout = root[@"menuLayout"];
+        if (![layout isKindOfClass:NSDictionary.class] || ![layout[@"order"] isKindOfClass:NSDictionary.class] || ![layout[@"hidden"] isKindOfClass:NSArray.class]) return nil;
+        for (id key in layout[@"order"]) {
+            if (![key isKindOfClass:NSString.class] || ![layout[@"order"][key] isKindOfClass:NSArray.class]) return nil;
+            for (id item in layout[@"order"][key]) if (![item isKindOfClass:NSString.class]) return nil;
+        }
+        for (id item in layout[@"hidden"]) if (![item isKindOfClass:NSString.class]) return nil;
+    }
+    if (root[@"preferences"]) {
+        id preferences = root[@"preferences"];
+        if (![preferences isKindOfClass:NSDictionary.class] || ![preferences[@"font"] isKindOfClass:NSString.class]) return nil;
+        for (NSString *key in @[@"fontSize", @"tabWidth", @"useTabs", @"lineNumbers", @"whitespace", @"autoIndent", @"braceMatch", @"autoComplete"])
+            if (![preferences[key] isKindOfClass:NSNumber.class]) return nil;
+    }
+    if (root[@"macros"]) {
+        if (![root[@"macros"] isKindOfClass:NSArray.class] || [root[@"macros"] count] > 1000) return nil;
+        for (id macro in root[@"macros"]) {
+            if (![macro isKindOfClass:NSDictionary.class] || ![macro[@"name"] isKindOfClass:NSString.class] || ![macro[@"actions"] isKindOfClass:NSArray.class] || [macro[@"actions"] count] > 10000) return nil;
+            for (id action in macro[@"actions"]) {
+                if (![action isKindOfClass:NSDictionary.class]) return nil;
+                for (NSString *key in @[@"message", @"w", @"l"]) if (![action[key] isKindOfClass:NSNumber.class]) return nil;
+                if (action[@"text"] && (![action[@"text"] isKindOfClass:NSData.class] || [action[@"text"] length] > 1024 * 1024)) return nil;
+            }
+        }
+    }
     for (id doc in documents) {
         if (![doc isKindOfClass:NSDictionary.class]) return nil;
         for (NSString *key in @[@"id", @"path", @"title", @"lexer"])
