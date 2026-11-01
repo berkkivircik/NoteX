@@ -13,6 +13,16 @@ extract it to a writable folder, and run `NoteX.exe`. No installer is required.
 The public package starts with a fresh profile and no documents or session history.
 Windows x64 is required. This release is unsigned.
 
+### Native macOS preview
+
+The native Apple Silicon edition is available separately as
+`NoteX-1.3.2-macos-arm64.zip` in the
+[macOS preview release](https://github.com/berkkivircik/NoteX/releases/tag/v1.3.2-macos.1).
+It uses AppKit and Cocoa Scintilla, without Wine or Rosetta. Requires macOS 14
+or later. See [the macOS guide](macOS/README.md) for installation, recovery,
+build instructions, and the features not yet ported from Windows.
+This first preview is ad-hoc signed and is not notarized by Apple.
+
 ## Features
 
 - Apply fonts, sizes, bold, italic, underline, strikethrough, and colors to text ranges.

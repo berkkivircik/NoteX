@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.3.2 macOS Preview 1 - 2026-11-01
+
+- Add a native Apple Silicon application with AppKit windows, menus, tabs,
+  file dialogs, and Mac keyboard shortcuts; no Windows compatibility runtime.
+- Reuse NoteX's Scintilla formatting and undo engine with the Cocoa renderer.
+- Add native rich-text clipboard support and the bundled Lexilla syntax lexers.
+- Preserve Unicode text, formatting, selections, and open tabs in atomic session
+  snapshots outside the application bundle, with a previous-snapshot fallback.
+- Read and write Windows-compatible formatting companions. Reject mismatched
+  companions, unrelated companion files, and externally changed documents.
+- Add isolated native tests for formatting, clipboard, file persistence,
+  restart, application replacement, and recovery after process termination.
+- Document preview limitations separately from the Windows feature set.
+- Keep the Windows 1.3.1 binaries and their corresponding source unchanged.
+
 ## 1.3.1 - 2026-10-31
 
 - Complete the NoteX naming migration across source, namespaces, classes, native

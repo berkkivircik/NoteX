@@ -1,7 +1,7 @@
 # NoteX modification notice
 
-Modified distribution: NoteX 1.3.1.
-Modifier: Berk Kivircik. Latest modification date: October 31, 2026.
+Modified distributions: NoteX 1.3.1 for Windows and 1.3.2 macOS Preview 1.
+Modifier: Berk Kivircik. Latest modification date: November 1, 2026.
 NoteX modifications: Copyright (C) 2026 Berk Kivircik.
 The modified work as a whole is distributed under GNU GPL version 3.
 Original copyright, license, and warranty notices remain in place.
@@ -28,6 +28,14 @@ The NoteX publication updates branding, legal notices, build discovery, and clea
 packaging. Legacy `.notex` files and menu settings remain compatible.
 
 ## Modified upstream code and project files
+
+The November 1, 2026 macOS port adds the AppKit application, storage, build,
+and native integration tests in `macOS/`. It modifies
+`scintilla/cocoa/ScintillaCocoa.mm` for formatting-aware clipboard handling and
+guards an unused Windows-only include in `lexilla/lexers/LexUser.cxx`.
+Original notices in both files are retained. The macOS port uses the same
+NoteX editing engine but does not include every Windows-specific feature;
+the platform guide lists the current boundary.
 
 These files contain dated NoteX notices in addition to their original notices:
 

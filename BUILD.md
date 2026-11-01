@@ -1,5 +1,8 @@
 # Building and packaging NoteX
 
+For the separate native Apple Silicon target, see [macOS/README.md](macOS/README.md).
+The instructions below build the Windows edition.
+
 ## Requirements
 
 - Windows x64.

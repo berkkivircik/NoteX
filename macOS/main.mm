@@ -598,6 +598,13 @@ static void Alert(NSString *message) {
 
 int main(int argc, const char *argv[]) {
     @autoreleasepool {
+        if ([NSProcessInfo.processInfo.arguments containsObject:@"--self-test"]) {
+            NSString *profile = NSProcessInfo.processInfo.environment[@"NOTEX_PROFILE"];
+            if (!profile.isAbsolutePath || ![profile.lastPathComponent hasPrefix:@"test-"]) {
+                fprintf(stderr, "Self-tests require an absolute isolated NOTEX_PROFILE named test-*.\n");
+                return 2;
+            }
+        }
         [NSApplication sharedApplication];
         [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
         NXApp *delegate = [NXApp new];

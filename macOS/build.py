@@ -34,12 +34,12 @@ def main():
     for include in ["scintilla/include", "scintilla/src", "scintilla/cocoa",
                     "lexilla/include", "lexilla/lexlib"]:
         flags += ["-I", str(ROOT / include)]
-    sources = sorted((ROOT / "scintilla/src").glob("*.cxx"))
+    sources = sorted((ROOT / "macOS").glob("*.mm"))
+    sources += sorted((ROOT / "scintilla/src").glob("*.cxx"))
     sources += sorted((ROOT / "scintilla/cocoa").glob("*.mm"))
     sources += sorted((ROOT / "lexilla/lexlib").glob("*.cxx"))
     sources += sorted((ROOT / "lexilla/lexers").glob("Lex*.cxx"))
     sources += [ROOT / "lexilla/src/Lexilla.cxx"]
-    sources += sorted((ROOT / "macOS").glob("*.mm"))
     def compile_source(source):
         target = objects / ("_".join(source.relative_to(ROOT).parts) + ".o")
         command = ["xcrun", "clang++", *flags]
@@ -57,7 +57,7 @@ def main():
         "CFBundlePackageType": "APPL", "CFBundleShortVersionString": VERSION,
         "CFBundleVersion": BUILD, "LSMinimumSystemVersion": "14.0",
         "NSHighResolutionCapable": True, "NSPrincipalClass": "NSApplication",
-        "NSHumanReadableCopyright": "Copyright © 2026 Berk Kivircik and contributors. GPLv3.",
+        "NSHumanReadableCopyright": "Copyright Â© 2026 Berk Kivircik and contributors. GPLv3.",
         "CFBundleDocumentTypes": [{"CFBundleTypeName": "Text document", "CFBundleTypeRole": "Editor",
                                    "LSHandlerRank": "Alternate", "LSItemContentTypes": ["public.text", "public.source-code"]}],
     }
