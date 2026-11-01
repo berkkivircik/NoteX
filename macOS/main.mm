@@ -156,6 +156,7 @@ static void Alert(NSString *message) {
 - (NSDictionary *)secondaryRecord;
 - (void)restoreSecondary:(NSDictionary *)record;
 - (void)refreshEditorSettings;
+- (void)refreshLanguageChoices;
 - (void)updateUserSyntax;
 - (void)preferencesEditor:(id)sender;
 - (void)languageEditor:(id)sender;
@@ -279,6 +280,7 @@ static void Alert(NSString *message) {
     self.language = [[NSPopUpButton alloc] initWithFrame:NSZeroRect pullsDown:NO];
     [self.language addItemWithTitle:@"Plain Text"];
     for (int i = 0; i < GetLexerCount(); ++i) { char name[128]{}; GetLexerName(i, name, sizeof name); [self.language addItemWithTitle:@(name)]; }
+    [self refreshLanguageChoices];
     self.language.target = self; self.language.action = @selector(changeLanguage:);
     [self.language.widthAnchor constraintEqualToConstant:140].active = YES;
     NSStackView *toolbar = [NSStackView stackViewWithViews:@[
@@ -497,7 +499,8 @@ static void Alert(NSString *message) {
     Send(doc.editor, NoteX::GetFormat, 0, reinterpret_cast<sptr_t>(&query));
     self.family.stringValue = (query.value.mask & NoteX::Family) ? @(query.value.family.c_str()) : self.preferences[@"font"];
     self.size.stringValue = [NSString stringWithFormat:@"%g", (query.value.mask & NoteX::Size) ? query.value.size / 100.0 : [self.preferences[@"fontSize"] doubleValue]];
-    [self.language selectItemWithTitle:[doc.lexer isEqual:@"null"] ? @"Plain Text" : doc.lexer];
+    NSDictionary *custom=[self userLanguage:doc];
+    [self.language selectItemWithTitle:custom?[@"User: " stringByAppendingString:custom[@"name"]]:[doc.lexer isEqual:@"null"] ? @"Plain Text" : doc.lexer];
     self.window.title = [NSString stringWithFormat:@"%@%@ — NoteX", doc.title, doc.dirty ? @" •" : @""];
     if (!self.snapshotFailed) self.status.stringValue = [NSString stringWithFormat:@"  Line %ld   Column %ld   %@   %lu characters",
         (long)Send(doc.editor, SCI_LINEFROMPOSITION, Send(doc.editor, SCI_GETCURRENTPOS)) + 1,
@@ -714,7 +717,7 @@ static void Alert(NSString *message) {
     }
     Send(view, SCI_ENDUNDOACTION); [self tick:nil];
 }
-- (void)changeLanguage:(id)sender { self.current.customLanguage=@"";self.current.lexer = self.language.indexOfSelectedItem == 0 ? @"null" : self.language.titleOfSelectedItem; [self refreshEditorSettings]; }
+- (void)changeLanguage:(id)sender { self.current.customLanguage=self.language.selectedItem.representedObject ?: @"";if(!self.current.customLanguage.length)self.current.lexer = self.language.indexOfSelectedItem == 0 ? @"null" : self.language.titleOfSelectedItem; [self refreshEditorSettings];[self tick:nil]; }
 - (void)toggleWrap:(id)sender { self.wrap=!self.wrap; self.preferences[@"wrap"]=@(self.wrap); [self refreshEditorSettings]; [self tick:nil]; }
 - (void)toggleDark:(id)sender {
     self.dark = !self.dark;

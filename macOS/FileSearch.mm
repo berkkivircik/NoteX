@@ -53,7 +53,7 @@ NSArray *NXSearchFiles(NSArray *inputs, NSDictionary *options, BOOL (^cancelled)
     for(id input in inputs){
         if(cancelled&&cancelled())return @[];
         if([input isKindOfClass:NSDictionary.class]){[files addObject:input];continue;}
-        NSString *path=input;BOOL directory=NO;[NSFileManager.defaultManager fileExistsAtPath:path isDirectory:&directory];
+        NSString *path=input;if([[[NSFileManager.defaultManager attributesOfItemAtPath:path error:nil] objectForKey:NSFileType] isEqual:NSFileTypeSymbolicLink])continue;BOOL directory=NO;[NSFileManager.defaultManager fileExistsAtPath:path isDirectory:&directory];
         if(directory){
             NSDirectoryEnumerationOptions flags=NSDirectoryEnumerationSkipsPackageDescendants;
             if(![options[@"hidden"] boolValue])flags|=NSDirectoryEnumerationSkipsHiddenFiles;
@@ -63,11 +63,12 @@ NSArray *NXSearchFiles(NSArray *inputs, NSDictionary *options, BOOL (^cancelled)
                 if(cancelled&&cancelled())return @[];
                 NSNumber *folder=nil,*link=nil;[url getResourceValue:&folder forKey:NSURLIsDirectoryKey error:nil];[url getResourceValue:&link forKey:NSURLIsSymbolicLinkKey error:nil];
                 if(link.boolValue||MatchesFilter(url.path,options[@"exclude"],NO)||[url.lastPathComponent isEqual:@".git"]){if(folder.boolValue)[walker skipDescendants];continue;}
-                if(!folder.boolValue)[files addObject:url.path];
+                if(!folder.boolValue&&MatchesFilter(url.path,options[@"include"],YES))[files addObject:url.path];
                 if(files.count>10000){if(error)*error=NXError(@"More than 10,000 files. Narrow the folder or file filters.");return nil;}
             }
         }else [files addObject:path];
     }
+    if(files.count>10000){if(error)*error=NXError(@"More than 10,000 files. Narrow the search scope.");return nil;}
     for(id input in files){@autoreleasepool{
         if(cancelled&&cancelled())return @[];
         NSDictionary *document=[input isKindOfClass:NSDictionary.class]?input:nil;NSString *path=document?document[@"path"]:input;
@@ -97,7 +98,7 @@ NSArray *NXSearchFiles(NSArray *inputs, NSDictionary *options, BOOL (^cancelled)
 - (void)showForWindow:(NSWindow *)parent {
     if(!self.window){self.window=[[NSWindow alloc]initWithContentRect:NSMakeRect(0,0,920,650) styleMask:NSWindowStyleMaskTitled|NSWindowStyleMaskClosable backing:NSBackingStoreBuffered defer:NO];self.window.releasedWhenClosed=NO;self.window.title=@"Find in Files";
         _query=[self field:@"Find" value:@"" y:604];_replacement=[self field:@"Replace with" value:@"" y:570];_folder=[self field:@"Folder" value:@"" y:536];_include=[self field:@"File filters" value:@"*" y:502];_exclude=[self field:@"Exclude" value:@".git;*.notex;*.app" y:468];
-        NSButton *browse=[NSButton buttonWithTitle:@"Choose…" target:self action:@selector(browse:)];browse.frame=NSMakeRect(842,536,72,26);[self.window.contentView addSubview:browse];
+        NSButton *browse=[NSButton buttonWithTitle:@"Choose…" target:self action:@selector(browse:)];_folder.frame=NSMakeRect(130,536,680,26);browse.frame=NSMakeRect(814,536,100,26);[self.window.contentView addSubview:browse];
         _scope=[[NSPopUpButton alloc]initWithFrame:NSMakeRect(16,426,180,28) pullsDown:NO];[_scope addItemsWithTitles:@[@"Folder",@"Open Documents",@"All Project Panels"]];[self.window.contentView addSubview:_scope];
         NSArray *labels=@[@"Regex",@"Match case",@"Whole word",@"Subfolders",@"Hidden files"];NSMutableArray *checks=[NSMutableArray new];
         for(NSUInteger i=0;i<labels.count;++i){NSButton *b=[NSButton checkboxWithTitle:labels[i] target:nil action:nil];b.frame=NSMakeRect(210+i*137,426,135,28);[self.window.contentView addSubview:b];[checks addObject:b];}
@@ -105,6 +106,7 @@ NSArray *NXSearchFiles(NSArray *inputs, NSDictionary *options, BOOL (^cancelled)
         _find=[NSButton buttonWithTitle:@"Find / Preview" target:self action:@selector(search:)];_find.frame=NSMakeRect(16,382,150,30);[self.window.contentView addSubview:_find];
         NSButton *cancel=[NSButton buttonWithTitle:@"Cancel Search" target:self action:@selector(cancelSearch:)];cancel.frame=NSMakeRect(178,382,140,30);[self.window.contentView addSubview:cancel];
         _apply=[NSButton buttonWithTitle:@"Apply Previewed Replacements…" target:self action:@selector(replace:)];_apply.frame=NSMakeRect(330,382,290,30);_apply.enabled=NO;[self.window.contentView addSubview:_apply];
+        NSButton *backups=[NSButton buttonWithTitle:@"Open Backups" target:self action:@selector(backups:)];backups.frame=NSMakeRect(640,382,160,30);[self.window.contentView addSubview:backups];
         NSScrollView *scroll=[[NSScrollView alloc]initWithFrame:NSMakeRect(16,60,888,308)];scroll.hasVerticalScroller=YES;scroll.hasHorizontalScroller=YES;_table=[[NSTableView alloc]initWithFrame:scroll.bounds];
         for(NSArray *entry in @[@[@"file",@"File",@350],@[@"line",@"Line",@55],@[@"excerpt",@"Matching Text",@400],@[@"replacement",@"Replacement",@240]]){NSTableColumn *c=[[NSTableColumn alloc]initWithIdentifier:entry[0]];c.title=entry[1];c.width=[entry[2] doubleValue];[_table addTableColumn:c];}
         _table.delegate=self;_table.dataSource=self;_table.target=self;_table.doubleAction=@selector(activate:);scroll.documentView=_table;[self.window.contentView addSubview:scroll];
@@ -112,6 +114,7 @@ NSArray *NXSearchFiles(NSArray *inputs, NSDictionary *options, BOOL (^cancelled)
     }self.window.appearance=parent.appearance;[self showWindow:nil];[self.window makeKeyAndOrderFront:nil];
 }
 - (void)browse:(id)sender {NSOpenPanel *panel=[NSOpenPanel openPanel];panel.canChooseFiles=NO;panel.canChooseDirectories=YES;if([panel runModal]==NSModalResponseOK)_folder.stringValue=panel.URL.path;}
+- (void)backups:(id)sender {if(self.showBackups)self.showBackups();}
 - (void)cancelSearch:(id)sender {++_generation;[_queue cancelAllOperations];_busy=NO;_find.enabled=YES;_apply.enabled=NO;_status.stringValue=@"Search canceled. No files were changed.";}
 - (void)search:(id)sender {
     [self cancelSearch:nil];_results=@[];[_table reloadData];
@@ -126,7 +129,7 @@ NSArray *NXSearchFiles(NSArray *inputs, NSDictionary *options, BOOL (^cancelled)
 }
 - (void)activate:(id)sender {NSInteger row=_table.clickedRow>=0?_table.clickedRow:_table.selectedRow;if(row>=0&&row<(NSInteger)_results.count&&self.navigate)self.navigate(_results[row]);}
 - (void)replace:(id)sender {
-    if(_busy||!_results.count)return;NSAlert *alert=[NSAlert new];alert.messageText=@"Apply these previewed replacements?";alert.informativeText=@"Closed files are backed up before saving. Changed files and dirty saved tabs are skipped. Unsaved untitled tabs are edited with undo. Review the result report if any files are skipped.";
+    if(_busy||!_results.count)return;NSAlert *alert=[NSAlert new];alert.messageText=@"Apply these previewed replacements?";alert.informativeText=@"Folder and project files are backed up before saving; changed files and dirty tabs are skipped. Open Documents results are edited in memory with undo and are not saved to disk. Review the result report if any files are skipped.";
     [alert addButtonWithTitle:@"Cancel"];[alert addButtonWithTitle:@"Apply Replacements"];if([alert runModal]!=NSAlertSecondButtonReturn)return;
     if(self.replaceResults)_status.stringValue=self.replaceResults(_results);_apply.enabled=NO;
 }

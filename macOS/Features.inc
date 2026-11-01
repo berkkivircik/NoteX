@@ -85,7 +85,7 @@ static BOOL StringMacroMessage(unsigned message) {
 - (void)resetMenus:(id)sender { [self.menuLayout reset]; }
 - (void)applyPreferences:(NXDocument *)doc {
     NSString *font = [self.preferences[@"font"] isKindOfClass:NSString.class] ? self.preferences[@"font"] : @"JetBrains Mono";
-    NSInteger size = std::clamp<NSInteger>([self.preferences[@"fontSize"] integerValue], 6, 96);
+    double size = std::clamp<double>([self.preferences[@"fontSize"] doubleValue], 6, 96);
     Send(doc.editor, SCI_STYLESETFONT, STYLE_DEFAULT, reinterpret_cast<sptr_t>(font.UTF8String));
     Send(doc.editor, SCI_STYLESETSIZEFRACTIONAL, STYLE_DEFAULT, size * 100);
     Send(doc.editor, SCI_STYLECLEARALL);
@@ -137,6 +137,7 @@ static BOOL StringMacroMessage(unsigned message) {
     NSError *error = nil; if (![self snapshot:&error]) { Alert(error.localizedDescription); return; }
     NSString *path = doc.path; doc.path = @"";
     if (![self openPath:path error:&error]) { doc.path = path; Alert(error.localizedDescription); return; }
+    if(self.secondaryDocument==doc)[self bindSecondary:self.documents.lastObject];
     [self.tabs removeTabViewItem:doc.tab]; [self.documents removeObject:doc]; [self tick:nil];
 }
 - (void)convertEncoding:(id)sender {
@@ -229,10 +230,11 @@ static BOOL StringMacroMessage(unsigned message) {
 - (void)startRecording:(id)sender {
     if (self.recording) return;
     self.recordingActions = [NSMutableArray new]; self.recording = YES;
-    for (NXDocument *doc in self.documents) Send(doc.editor, SCI_STARTRECORD);
+    for (NXDocument *doc in self.documents) Send(doc.primaryEditor, SCI_STARTRECORD);
+    if(self.secondaryVisible) Send(self.secondaryEditor, SCI_STARTRECORD);
     self.status.stringValue = @"Recording macro…";
 }
-- (void)stopRecording:(id)sender { self.recording = NO; for (NXDocument *doc in self.documents) Send(doc.editor, SCI_STOPRECORD); [self tick:nil]; }
+- (void)stopRecording:(id)sender { self.recording = NO; for (NXDocument *doc in self.documents) Send(doc.primaryEditor, SCI_STOPRECORD); Send(self.secondaryEditor, SCI_STOPRECORD); [self tick:nil]; }
 - (void)playActions:(NSArray *)actions repetitions:(NSUInteger)repetitions {
     if (self.recording || self.playingMacro || actions.count > 10000 || repetitions > 1000) return;
     if (actions.count * repetitions > 100000) { Alert(@"This playback exceeds 100,000 editing actions. Reduce the repeat count."); return; }

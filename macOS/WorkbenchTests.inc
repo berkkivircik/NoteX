@@ -58,6 +58,7 @@ static void CancelNextDialog(void) {
     NSDictionary *shortcutLayout=self.menuLayout.settings;CancelNextDialog();[self shortcutEditor:nil];Check([self.menuLayout.settings isEqual:shortcutLayout],"cancel shortcut editor preserves assignments");
     self.preferences[@"showEOL"]=@YES;self.preferences[@"caretWidth"]=@3;self.preferences[@"edgeColumn"]=@80;[self refreshEditorSettings];
     Check(Send(doc.primaryEditor,SCI_GETVIEWEOL)&&Send(doc.primaryEditor,SCI_GETCARETWIDTH)==3&&Send(doc.primaryEditor,SCI_GETEDGECOLUMN)==80,"preferences affect actual editor behavior");
+    self.preferences[@"fontSize"]=@13.5;[self refreshEditorSettings];Check(Send(doc.primaryEditor,SCI_STYLEGETSIZEFRACTIONAL,STYLE_DEFAULT)==1350,"preferences preserve fractional font sizes");
     NSDictionary *options=@{@"query":@"café (\\d+)",@"replacement":@"note-$1",@"regex":@YES,@"matchCase":@NO,@"wholeWord":@NO,@"recursive":@YES,@"hidden":@NO,@"include":@"*.txt",@"exclude":@"skip*"};
     NSString *folder=[self.storage.directory stringByAppendingPathComponent:@"search-fixtures"],*file=[folder stringByAppendingPathComponent:@"sample.txt"];
     Check([NSFileManager.defaultManager createDirectoryAtPath:folder withIntermediateDirectories:YES attributes:nil error:&error],"create isolated search fixture directory");
@@ -70,12 +71,21 @@ static void CancelNextDialog(void) {
     NSArray *backups=[NSFileManager.defaultManager subpathsAtPath:[self.storage.directory stringByAppendingPathComponent:@"ReplaceBackups"]];BOOL foundBackup=NO;
     for(NSString *path in backups)if([path hasSuffix:@"sample.txt"]&&[[NSData dataWithContentsOfFile:[[self.storage.directory stringByAppendingPathComponent:@"ReplaceBackups"] stringByAppendingPathComponent:path]] isEqual:original])foundBackup=YES;
     Check(foundBackup,"replace-in-files retains recoverable original bytes");
+    BOOL foundMap=NO;for(NSString *path in backups)if([path hasSuffix:@"recovery.json"]){NSArray *map=[NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:[[self.storage.directory stringByAppendingPathComponent:@"ReplaceBackups"] stringByAppendingPathComponent:path]] options:0 error:nil];for(NSDictionary *entry in map)if([NXCanonicalPath(entry[@"path"]) isEqual:NXCanonicalPath(file)]&&[entry[@"hasCompanion"] boolValue])foundMap=YES;}
+    Check(foundMap,"replacement recovery map retains original path and companion association");
     NSMutableDictionary *literal=[options mutableCopy];literal[@"query"]=@"note";literal[@"regex"]=@NO;literal[@"replacement"]=@"changed";results=NXSearchFiles(@[file],literal,nil,&error);
     NSData *external=[@"external edit" dataUsingEncoding:NSUTF8StringEncoding];Check(NXWrite(external,file,&error),"simulate external change after preview");report=[self applySearchResults:results];Check([report hasPrefix:@"0 documents updated"]&&[[NSData dataWithContentsOfFile:file] isEqual:external],"replace preview refuses externally changed file");
+    NSData *dirtyBefore=Text(saved.primaryEditor);Send(saved.primaryEditor,SCI_APPENDTEXT,5,reinterpret_cast<sptr_t>(" note"));
+    results=NXSearchFiles(@[@{@"id":saved.identifier,@"path":saved.path,@"title":saved.title,@"text":Text(saved.primaryEditor)}],literal,nil,&error);
+    report=[self applySearchResults:results];Check([report hasPrefix:@"1 documents updated"]&&[saved.primaryEditor.string hasSuffix:@" changed"]&&[[NSData dataWithContentsOfFile:file] isEqual:external],"Open Documents replacement edits dirty buffers without overwriting disk");
+    Send(saved.primaryEditor,SCI_UNDO);Check([saved.primaryEditor.string hasSuffix:@" note"],"undo buffer replacement preserves earlier unsaved edit");
+    SetText(saved.primaryEditor,dirtyBefore);
     NXDocument *untitled=[self newDocument:nil];SetText(untitled.primaryEditor,[@"note note" dataUsingEncoding:NSUTF8StringEncoding]);results=NXSearchFiles(@[@{@"id":untitled.identifier,@"path":@"",@"title":@"draft.txt",@"text":Text(untitled.primaryEditor)}],literal,nil,&error);
     report=[self applySearchResults:results];Check([untitled.primaryEditor.string isEqual:@"changed changed"]&&untitled.path.length==0,"search and replace unsaved tabs without creating disk files");Send(untitled.primaryEditor,SCI_UNDO);Check([untitled.primaryEditor.string isEqual:@"note note"],"undo all previewed changes in a tab together");
     NSMutableData *utf16=[NSMutableData dataWithBytes:"\xff\xfe" length:2];[utf16 appendData:[@"café 77" dataUsingEncoding:NSUTF16LittleEndianStringEncoding]];NSString *utf16File=[folder stringByAppendingPathComponent:@"utf16.txt"];Check(NXWrite(utf16,utf16File,&error),"create UTF-16 search fixture");
+    Check([NSFileManager.defaultManager setAttributes:@{NSFilePosixPermissions:@0640} ofItemAtPath:utf16File error:&error],"set fixture permissions before replacement");
     results=NXSearchFiles(@[utf16File],options,nil,&error);Check(results.count==1,"search BOM-marked UTF-16 files");report=[self applySearchResults:results];NSData *converted=[NSData dataWithContentsOfFile:utf16File];Check(converted.length>=2&&!memcmp(converted.bytes,"\xff\xfe",2)&&[NXDecodeText(converted) isEqual:@"note-77"],"replacement preserves UTF-16 encoding and BOM");
+    Check([[[NSFileManager.defaultManager attributesOfItemAtPath:utf16File error:&error] objectForKey:NSFilePosixPermissions] unsignedIntegerValue]==0640,"atomic replacement preserves existing permission bits");
     Check([NXSearchFiles(@[folder],options,^BOOL{return YES;},&error) count]==0,"cancel file enumeration without changes");
     literal[@"regex"]=@YES;literal[@"query"]=@"(";error=nil;Check(!NXSearchMatches(@"text",literal,&error)&&error,"invalid regular expression is reported");
     Check([self snapshot:&error],"persist complete workbench state");

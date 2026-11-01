@@ -19,8 +19,8 @@
     self.editorSplit=[[NSSplitView alloc]initWithFrame:NSMakeRect(286,0,834,600)];self.editorSplit.vertical=YES;self.editorSplit.dividerStyle=NSSplitViewDividerStyleThin;self.editorSplit.autoresizingMask=NSViewWidthSizable|NSViewHeightSizable;
     self.tabs.frame=self.editorSplit.bounds;[self.editorSplit addSubview:self.tabs];
     self.secondaryHost=[[NSView alloc]initWithFrame:NSMakeRect(0,0,410,600)];self.secondaryHost.autoresizingMask=NSViewWidthSizable|NSViewHeightSizable;
-    self.secondaryChoice=[[NSPopUpButton alloc]initWithFrame:NSMakeRect(6,568,320,28) pullsDown:NO];self.secondaryChoice.autoresizingMask=NSViewWidthSizable|NSViewMinYMargin;self.secondaryChoice.target=self;self.secondaryChoice.action=@selector(selectSecondary:);[self.secondaryHost addSubview:self.secondaryChoice];
-    NSButton *close=[NSButton buttonWithTitle:@"Close View" target:self action:@selector(closeSecondary:)];close.frame=NSMakeRect(330,568,80,28);close.autoresizingMask=NSViewMinXMargin|NSViewMinYMargin;[self.secondaryHost addSubview:close];
+    self.secondaryChoice=[[NSPopUpButton alloc]initWithFrame:NSMakeRect(6,568,290,28) pullsDown:NO];self.secondaryChoice.autoresizingMask=NSViewWidthSizable|NSViewMinYMargin;self.secondaryChoice.target=self;self.secondaryChoice.action=@selector(selectSecondary:);[self.secondaryHost addSubview:self.secondaryChoice];
+    NSButton *close=[NSButton buttonWithTitle:@"Close View" target:self action:@selector(closeSecondary:)];close.frame=NSMakeRect(300,568,110,28);close.autoresizingMask=NSViewMinXMargin|NSViewMinYMargin;[self.secondaryHost addSubview:close];
     self.secondaryEditor=[[ScintillaView alloc]initWithFrame:NSMakeRect(0,0,410,560)];self.secondaryEditor.autoresizingMask=NSViewWidthSizable|NSViewHeightSizable;Send(self.secondaryEditor,SCI_SETCODEPAGE,SC_CP_UTF8);self.secondaryEditor.delegate=self;[self.secondaryHost addSubview:self.secondaryEditor];
 }
 - (void)bindSecondary:(NXDocument *)document {
@@ -77,9 +77,14 @@
     }
 }
 - (void)refreshEditorSettings {
+    [self refreshLanguageChoices];
     BOOL focused=self.secondaryFocused;for(NXDocument *doc in self.documents){doc.activeEditor=nil;[self applyPreferences:doc];[self theme:doc];}
     if(self.secondaryVisible){self.secondaryDocument.activeEditor=self.secondaryEditor;[self applyPreferences:self.secondaryDocument];[self theme:self.secondaryDocument];if(!focused)self.secondaryDocument.activeEditor=nil;}
     [self.syntaxHashes removeAllObjects];[self updateUserSyntax];[self updateControls];
+}
+- (void)refreshLanguageChoices {
+    for(NSMenuItem *item in [self.language.itemArray copy])if(item.representedObject)[self.language.menu removeItem:item];
+    for(NSDictionary *language in self.configuration[@"languages"]){[self.language addItemWithTitle:[@"User: " stringByAppendingString:language[@"name"]]];self.language.lastItem.representedObject=language[@"id"];}
 }
 - (BOOL)commitConfiguration:(NSDictionary *)configuration {
     if(!NXValidateConfiguration(configuration)){Alert(@"The configuration is invalid.");return NO;}
@@ -116,7 +121,7 @@
     else for(NSDictionary *root in self.workspace.projects)[self collectProjectFiles:root into:files];return files;
 }
 - (void)findInFiles:(id)sender {
-    if(!self.fileSearch){self.fileSearch=[NXFileSearch new];__weak NXApp *weak=self;self.fileSearch.scopeFiles=^NSArray *(NSInteger scope){return [weak searchScope:scope];};self.fileSearch.navigate=^(NSDictionary *result){[weak navigateResult:result];};self.fileSearch.replaceResults=^NSString *(NSArray *results){return [weak applySearchResults:results];};}
+    if(!self.fileSearch){self.fileSearch=[NXFileSearch new];__weak NXApp *weak=self;self.fileSearch.scopeFiles=^NSArray *(NSInteger scope){return [weak searchScope:scope];};self.fileSearch.navigate=^(NSDictionary *result){[weak navigateResult:result];};self.fileSearch.replaceResults=^NSString *(NSArray *results){return [weak applySearchResults:results];};self.fileSearch.showBackups=^{NSString *path=[weak.storage.directory stringByAppendingPathComponent:@"ReplaceBackups"];[NSFileManager.defaultManager createDirectoryAtPath:path withIntermediateDirectories:YES attributes:@{NSFilePosixPermissions:@0700} error:nil];[NSWorkspace.sharedWorkspace openURL:[NSURL fileURLWithPath:path]];};}
     [self.fileSearch showForWindow:self.window];
 }
 - (NXDocument *)documentForResult:(NSDictionary *)result {for(NXDocument *doc in self.documents)if(([result[@"id"] length]&&[doc.identifier isEqual:result[@"id"]])||([result[@"path"] length]&&[NXCanonicalPath(doc.path) isEqual:NXCanonicalPath(result[@"path"])]))return doc;return nil;}
@@ -132,25 +137,31 @@
     if(groups.count>1000)return @"More than 1,000 documents. Narrow the search before replacing.";
     NSString *backup=[self.storage.directory stringByAppendingPathComponent:[@"ReplaceBackups/" stringByAppendingString:NSUUID.UUID.UUIDString]];
     if(![NSFileManager.defaultManager createDirectoryAtPath:backup withIntermediateDirectories:YES attributes:@{NSFilePosixPermissions:@0700} error:&error])return error.localizedDescription;
-    NSMutableArray *report=[NSMutableArray new];NSUInteger changed=0,skipped=0;NXDocument *selected=self.current;
+    NSMutableArray *report=[NSMutableArray new],*recovery=[NSMutableArray new];NSUInteger changed=0,skipped=0;NXDocument *selected=self.current;
     for(NSString *key in [[groups allKeys] sortedArrayUsingSelector:@selector(compare:)]){@autoreleasepool{
-        NSArray *matches=[groups[key] sortedArrayUsingComparator:^NSComparisonResult(NSDictionary *a,NSDictionary *b){return [b[@"position"] compare:a[@"position"]];}];NSDictionary *first=matches[0];NSString *path=first[@"path"];
-        NXDocument *doc=[self documentForResult:first];BOOL wasOpen=doc!=nil;NSString *reason=nil;NSData *disk=path.length?[NSData dataWithContentsOfFile:path]:nil;
+        NSArray *matches=[groups[key] sortedArrayUsingComparator:^NSComparisonResult(NSDictionary *a,NSDictionary *b){return [b[@"position"] compare:a[@"position"]];}];NSDictionary *first=matches[0];NSString *path=first[@"path"];BOOL inMemory=[first[@"id"] length]>0;
+        NXDocument *doc=[self documentForResult:first];BOOL wasOpen=doc!=nil;NSString *reason=nil;NSData *disk=path.length&&!inMemory?[NSData dataWithContentsOfFile:path]:nil;
         if([first[@"id"] length]&&!doc)reason=@"The searched tab was closed.";
-        if(path.length&&(!disk||(![first[@"id"] length]&&![NXDigest(disk) isEqual:first[@"diskHash"]])))reason=@"The file changed or is unavailable.";
-        if(doc&&path.length&&![NXDigest(disk) isEqual:doc.diskHash])reason=@"The file changed outside the editor.";
-        if(doc&&path.length&&doc.dirty)reason=@"The open document has unsaved changes.";
+        if(path.length&&!inMemory&&(!disk||(![first[@"id"] length]&&![NXDigest(disk) isEqual:first[@"diskHash"]])))reason=@"The file changed or is unavailable.";
+        if(doc&&path.length&&!inMemory&&![NXDigest(disk) isEqual:doc.diskHash])reason=@"The file changed outside the editor.";
+        if(doc&&path.length&&!inMemory&&doc.dirty)reason=@"The open document has unsaved changes.";
         if(doc&&![NXDigest(Text(doc.primaryEditor)) isEqual:first[@"textHash"]])reason=@"The document changed after the preview.";
-        NSString *companion=[path stringByAppendingString:@".notex"];NSData *sidecar=path.length?[NSData dataWithContentsOfFile:companion]:nil;
+        NSString *companion=[path stringByAppendingString:@".notex"];NSData *sidecar=path.length&&!inMemory?[NSData dataWithContentsOfFile:companion]:nil;
         if(sidecar){NoteX::State state;NSString *text=NXDecodeText(disk);if(!text||!NXReadCompanion(sidecar,[text dataUsingEncoding:NSUTF8StringEncoding],state))reason=@"The formatting companion is invalid or belongs to different text.";}
         NSString *prefix=[NSString stringWithFormat:@"%04lu-",(unsigned long)(changed+skipped)];
-        if(!reason&&path.length){if(!NXWrite(disk,[backup stringByAppendingPathComponent:[prefix stringByAppendingString:path.lastPathComponent]],&error)||(sidecar&&!NXWrite(sidecar,[backup stringByAppendingPathComponent:[[prefix stringByAppendingString:path.lastPathComponent] stringByAppendingString:@".notex"]],&error)))reason=error.localizedDescription;}
+        if(!reason&&path.length&&!inMemory){if(!NXWrite(disk,[backup stringByAppendingPathComponent:[prefix stringByAppendingString:path.lastPathComponent]],&error)||(sidecar&&!NXWrite(sidecar,[backup stringByAppendingPathComponent:[[prefix stringByAppendingString:path.lastPathComponent] stringByAppendingString:@".notex"]],&error)))reason=error.localizedDescription;}
+        if(!reason&&path.length&&!inMemory){
+            NSDictionary *attributes=[NSFileManager.defaultManager attributesOfItemAtPath:path error:&error];
+            [recovery addObject:@{@"path":path,@"backup":[prefix stringByAppendingString:path.lastPathComponent],@"hasCompanion":@(sidecar!=nil),@"permissions":attributes[NSFilePosixPermissions] ?: @0600}];
+            NSData *journal=[NSJSONSerialization dataWithJSONObject:recovery options:NSJSONWritingPrettyPrinted error:&error];
+            if(!journal||!NXWrite(journal,[backup stringByAppendingPathComponent:@"recovery.json"],&error))reason=error.localizedDescription ?: @"The recovery map could not be saved.";
+        }
         if(!reason&&!doc){if(![self openPath:path error:&error])reason=error.localizedDescription;else doc=self.current;}
         if(!reason&&![NXDigest(Text(doc.primaryEditor)) isEqual:first[@"textHash"]])reason=@"The file changed while it was being opened.";
         if(reason){++skipped;[report addObject:@{@"path":path,@"status":@"skipped",@"reason":reason}];continue;}
         auto *view=doc.primaryEditor;Send(view,SCI_BEGINUNDOACTION);for(NSDictionary *match in matches){NSData *replacement=[match[@"replacement"] dataUsingEncoding:NSUTF8StringEncoding];Send(view,SCI_SETTARGETSTART,[match[@"position"] unsignedLongLongValue]);Send(view,SCI_SETTARGETEND,[match[@"position"] unsignedLongLongValue]+[match[@"length"] unsignedLongLongValue]);Send(view,SCI_REPLACETARGET,replacement.length,reinterpret_cast<sptr_t>(replacement.bytes));}Send(view,SCI_ENDUNDOACTION);
-        if(path.length&&![self saveDocument:doc path:path error:&error]){++skipped;[report addObject:@{@"path":path,@"status":@"save failed; edited tab retained",@"reason":error.localizedDescription ?: @"Unknown save error"}];continue;}
-        ++changed;[report addObject:@{@"path":path,@"title":doc.title,@"status":path.length?@"saved":@"edited with undo",@"backupPrefix":prefix}];
+        if(path.length&&!inMemory&&![self saveDocument:doc path:path error:&error]){++skipped;[report addObject:@{@"path":path,@"status":@"save failed; edited tab retained",@"reason":error.localizedDescription ?: @"Unknown save error"}];continue;}
+        ++changed;[report addObject:@{@"path":path,@"title":doc.title,@"status":path.length&&!inMemory?@"saved":@"edited with undo",@"backupPrefix":prefix}];
         if(!wasOpen&&doc!=self.secondaryDocument){[self.tabs removeTabViewItem:doc.tab];[self.documents removeObject:doc];}
     }}
     NSData *manifest=[NSJSONSerialization dataWithJSONObject:report options:NSJSONWritingPrettyPrinted error:nil];BOOL recorded=NXWrite(manifest,[backup stringByAppendingPathComponent:@"report.json"],&error);

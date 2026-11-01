@@ -101,7 +101,7 @@ static BOOL ValidLayout(NSDictionary *value) {
         if(item.submenu)[self collectCommands:node[@"children"] into:result];
         else if(item.action){NSString *key=item.keyEquivalent;NSUInteger modifiers=item.keyEquivalentModifierMask;
             if(key.length&&![key isEqual:key.lowercaseString]){key=key.lowercaseString;modifiers|=NSEventModifierFlagShift;}
-            [result addObject:@{@"id":node[@"key"],@"name":[NSString stringWithFormat:@"%@ — %@",node[@"parent"],item.title],@"key":key,@"modifiers":@(modifiers),@"locked":@(item.action==@selector(terminate:))}];
+            [result addObject:@{@"id":node[@"key"],@"name":[NSString stringWithFormat:@"%@ — %@",[[node[@"parent"] stringByReplacingOccurrencesOfString:@"/menu:" withString:@" / "] stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@" / "]],item.title],@"key":key,@"modifiers":@(modifiers),@"locked":@(item.action==@selector(terminate:))}];
         }
     }
 }

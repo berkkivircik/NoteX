@@ -8,5 +8,6 @@ NSArray *NXSearchFiles(NSArray *inputs, NSDictionary *options, BOOL (^cancelled)
 @property(copy) NSArray *(^scopeFiles)(NSInteger scope);
 @property(copy) void (^navigate)(NSDictionary *result);
 @property(copy) NSString *(^replaceResults)(NSArray *results);
+@property(copy) void (^showBackups)(void);
 - (void)showForWindow:(NSWindow *)parent;
 @end

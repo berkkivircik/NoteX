@@ -96,13 +96,15 @@ Apply Previewed Replacements asks for confirmation. It checks that the searched
 content is still current, skips dirty saved tabs and externally changed files,
 backs up original documents and formatting companions, then saves through the
 normal NoteX path. UTF-16 BOMs, formatting companions, and file permission bits
-are preserved. Untitled tabs are edited with a single undo action and are not
-silently saved to disk. Successful changes remain applied if another file fails;
+are preserved. Open Documents results, including dirty saved tabs and untitled tabs, are edited
+with a single undo action and are not silently saved to disk. Successful changes remain applied if another file fails;
 the result report lists skipped files and errors.
 
-Backups and `report.json` are stored under
+Open Backups in the search window opens the recovery directory.
+Backups, `recovery.json`, and `report.json` are stored under
 `~/Library/Application Support/NoteX/ReplaceBackups/<batch ID>`.
-The report maps each numbered backup to its original path. Keep these backups
+The recovery map is written before each file is changed, so original paths remain
+available if the app stops during a batch. The final report records outcomes. Keep these backups
 until you have reviewed the changes. Restore copies only after closing the file
 in NoteX, and keep its formatting companion beside it.
 
