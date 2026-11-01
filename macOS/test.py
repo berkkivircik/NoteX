@@ -83,7 +83,7 @@ with tempfile.TemporaryDirectory(prefix="notex-native-tests-") as directory:
             log = work / f"{mode}.log"
             with log.open("w") as output:
                 process = subprocess.Popen([str(APP / "Contents/MacOS/NoteX"), "--self-test", mode],
-                    env=dict(os.environ, NOTEX_PROFILE=str(work / f"test-{mode}")), stdout=output, stderr=subprocess.STDOUT)
+                    env=dict(os.environ, NOTEX_PROFILE=str(work / f"test-{mode}"), NOTEX_UI_DIAGNOSTIC=str(OUTPUT / f"{mode}-diagnostic.png")), stdout=output, stderr=subprocess.STDOUT)
                 try:
                     deadline = time.monotonic() + 30
                     while "READY" not in log.read_text():
