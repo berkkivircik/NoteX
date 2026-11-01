@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.4.0 macOS Preview 3 - 2026-11-01
+
+- Add horizontal and vertical split views, shared-document clones, independent
+  view state, a second-view document selector, and synchronized scrolling.
+- Add background file search across folders, open tabs, and project references,
+  with filters, regex, Unicode match navigation, and previewed replacements.
+- Protect replace-in-files operations with stale-content checks, recovery copies,
+  result reports, encoding preservation, and formatting-aware normal saves.
+- Add a native preferences editor with reset and JSON import/export.
+- Add a shortcut editor with conflict detection and persistent command assignments.
+- Add user-defined language editing, extension associations, keyword groups,
+  comments, strings, folding, and Unicode keyword matching.
+- Add theme editing, syntax colors, font traits, and JSON import/export.
+- Preserve new configuration and split state across restarts and app replacement.
+- Preserve existing file permission bits during atomic macOS file writes.
+- Keep Windows binaries and historical releases unchanged.
+
 ## 1.3.3 macOS Preview 2 - 2026-11-01
 
 - Add persistent native menu visibility and ordering, with Apply, Cancel, and Reset.

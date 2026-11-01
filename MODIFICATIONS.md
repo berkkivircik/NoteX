@@ -1,6 +1,6 @@
 # NoteX modification notice
 
-Modified distributions: NoteX 1.3.1 for Windows and 1.3.3 macOS Preview 2.
+Modified distributions: NoteX 1.3.1 for Windows and 1.4.0 macOS Preview 3.
 Modifier: Berk Kivircik. Latest modification date: November 1, 2026.
 NoteX modifications: Copyright (C) 2026 Berk Kivircik.
 The modified work as a whole is distributed under GNU GPL version 3.
@@ -28,6 +28,12 @@ The NoteX publication updates branding, legal notices, build discovery, and clea
 packaging. Legacy `.notex` files and menu settings remain compatible.
 
 ## Modified upstream code and project files
+
+The third native preview adds `macOS/Configuration`, `macOS/FileSearch`,
+`macOS/Workbench.inc`, and workbench integration tests. It extends the native
+menu, application, storage, and build/test code for split views, file search,
+preferences, shortcuts, language and theme editors, and recovery compatibility.
+These changes were made November 1, 2026. Existing upstream notices are retained.
 
 The second native preview adds `macOS/MenuLayout`, `macOS/Workspace`,
 `macOS/FunctionIndex`, and the native feature commands and regression tests.
