@@ -16,6 +16,7 @@
         NXEditor *editor = (NXEditor *)view;
         if (editor.newline && editor.newline(editor)) return;
     }
+    if(![self hasMarkedText]&&!(event.modifierFlags&(NSEventModifierFlagCommand|NSEventModifierFlagControl|NSEventModifierFlagOption))){NSView *view=self;while(view&&![view isKindOfClass:NXEditor.class])view=view.superview;NXEditor *editor=(NXEditor *)view;if(editor.typedKey&&editor.typedKey(editor,event.characters))return;}
     [super keyDown:event];
 }
 @end

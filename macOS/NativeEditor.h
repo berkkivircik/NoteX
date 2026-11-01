@@ -3,5 +3,6 @@
 #import "ScintillaView.h"
 @interface NXEditor : ScintillaView
 @property(copy) NSMenu *(^editorContextMenu)(void);
+@property(copy) BOOL (^typedKey)(ScintillaView *, NSString *);
 @property(copy) BOOL (^newline)(ScintillaView *);
 @end

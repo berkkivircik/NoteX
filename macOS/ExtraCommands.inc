@@ -1,6 +1,14 @@
 // Copyright (C) 2026 Berk Kivircik. SPDX-License-Identifier: GPL-3.0-only
 // Native column sequences, folding, and application integrations, added 2026-11-01.
 @implementation NXApp (ExtraCommands)
+- (BOOL)pairedInput:(ScintillaView *)view key:(NSString *)key {
+    if(![self.preferences[@"autoPairs"] boolValue]||key.length!=1||[key characterAtIndex:0]>127||[key characterAtIndex:0]==0||Send(view,SCI_GETREADONLY)||Send(view,SCI_GETSELECTIONS)!=1||Send(view,SCI_AUTOCACTIVE))return NO;
+    NSString *close=@{@"(":@")",@"[":@"]",@"{":@"}",@"\"":@"\"",@"'":@"'"}[key];auto a=Send(view,SCI_GETSELECTIONSTART),b=Send(view,SCI_GETSELECTIONEND);char typed=[key characterAtIndex:0];
+    if(a==b&&strchr(")]}\"'",typed)&&Send(view,SCI_GETCHARAT,a)==typed){Send(view,SCI_GOTOPOS,a+1);return YES;}
+    if(!close)return NO;if((typed=='\"'||typed=='\'')&&a>0){auto previous=Send(view,SCI_GETCHARAT,a-1);if(previous=='\\'||(typed=='\''&&(std::isalnum((unsigned char)previous)||previous>=128)))return NO;}
+    NSString *selected=[[NSString alloc]initWithData:[Text(view) subdataWithRange:NSMakeRange(a,b-a)] encoding:NSUTF8StringEncoding];NXReplaceRange(view,a,b,[NSString stringWithFormat:@"%@%@%@",key,selected,close]);Send(view,SCI_SETSEL,a+1,b+1);return YES;
+}
+
 - (void)numberColumns:(id)sender {
     NSAlert *alert=[NSAlert new];alert.messageText=@"Insert Number Sequence";NSView *form=[[NSView alloc]initWithFrame:NSMakeRect(0,0,340,172)];NSMutableArray *fields=[NSMutableArray new];
     NSArray *labels=@[@"Initial value",@"Increment",@"Repeat each value",@"Minimum digits"],*defaults=@[@"1",@"1",@"1",@"0"];

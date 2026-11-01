@@ -263,6 +263,7 @@ static void Alert(NSString *message) {
 @end
 @interface NXApp (ExtraCommands)
 - (void)buildExtraMenus;
+- (BOOL)pairedInput:(ScintillaView *)view key:(NSString *)key;
 - (void)numberColumns:(id)sender;
 - (void)foldSpecific:(id)sender;
 - (void)openBrowser:(id)sender;
@@ -624,6 +625,7 @@ static NSDictionary *NXBuiltIn(NSString *identifier);
     doc.editor = [[NXEditor alloc] initWithFrame:NSMakeRect(0, 0, 1000, 620)];
     __weak NXApp *owner = self;
     ((NXEditor *)doc.editor).editorContextMenu=^NSMenu *{return owner.editorContextMenu;};
+    ((NXEditor *)doc.editor).typedKey=^BOOL(ScintillaView *view,NSString *key){return [owner pairedInput:view key:key];};
     ((NXEditor *)doc.editor).newline = ^BOOL(ScintillaView *view) { return [owner insertEditorNewline:view]; };
     doc.editor.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     Send(doc.editor,SCI_SETCHANGEHISTORY,SC_CHANGE_HISTORY_ENABLED|SC_CHANGE_HISTORY_MARKERS);

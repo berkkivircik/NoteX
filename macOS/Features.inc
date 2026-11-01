@@ -116,6 +116,7 @@ static BOOL StringMacroMessage(unsigned message) {
     Send(doc.editor, SCI_SETUSETABS, [self.preferences[@"useTabs"] boolValue]);
     Send(doc.editor,SCI_SETWRAPMODE,self.wrap?SC_WRAP_WORD:SC_WRAP_NONE);
     Send(doc.editor,SCI_SETINDENTATIONGUIDES,[self.preferences[@"indentGuides"] boolValue]?SC_IV_LOOKBOTH:SC_IV_NONE);
+    for(NSArray *pair in @[@[@"\u200B",@"ZWSP"],@[@"\u200C",@"ZWNJ"],@[@"\u200D",@"ZWJ"],@[@"\u2060",@"WJ"],@[@"\uFEFF",@"BOM"],@[@"\u00A0",@"NBSP"],@[@"\u2028",@"LS"],@[@"\u2029",@"PS"],@[@"\u0085",@"NEL"]])Send(doc.editor,[self.preferences[@"nonPrinting"] boolValue]?SCI_SETREPRESENTATION:SCI_CLEARREPRESENTATION,reinterpret_cast<uptr_t>([pair[0] UTF8String]),reinterpret_cast<sptr_t>([pair[1] UTF8String]));
     Send(doc.editor,SCI_SETVIEWEOL,[self.preferences[@"showEOL"] boolValue]);
     Send(doc.editor,SCI_SETCARETLINEVISIBLE,[self.preferences[@"highlightLine"] boolValue]);
     Send(doc.editor,SCI_SETCARETWIDTH,std::clamp<NSInteger>([self.preferences[@"caretWidth"] integerValue],1,3));
@@ -249,7 +250,9 @@ static BOOL StringMacroMessage(unsigned message) {
         if (notification->ch == '\n' && [self.preferences[@"autoIndent"] boolValue]) {
             auto line = Send(view, SCI_LINEFROMPOSITION, Send(view, SCI_GETCURRENTPOS));
             if (line > 0) { Send(view, SCI_SETLINEINDENTATION, line, Send(view, SCI_GETLINEINDENTATION, line - 1)); Send(view, SCI_GOTOPOS, Send(view, SCI_GETLINEINDENTPOSITION, line)); }
-        } else if ([self.preferences[@"autoComplete"] boolValue]) [self completeWord:nil];
+        } else if(notification->ch=='('&&[self.preferences[@"parameterHints"] boolValue])[self parameterHint:nil];
+        else if([self.preferences[@"functionCompletion"] boolValue])[self completeFunction:nil];
+        else if ([self.preferences[@"autoComplete"] boolValue]) [self completeWord:nil];
     }
 }
 - (void)startRecording:(id)sender {
