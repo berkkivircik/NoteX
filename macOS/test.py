@@ -47,6 +47,9 @@ with tempfile.TemporaryDirectory(prefix="notex-native-tests-") as directory:
                 if process.poll() is not None or time.monotonic() > deadline:
                     raise RuntimeError("Crash fixture failed to complete an autosnapshot: " + log.read_text())
                 time.sleep(0.2)
+            if os.environ.get("CI"):
+                # Capture only the hosted runner's synthetic test session.
+                subprocess.run(["screencapture", "-x", str(OUTPUT / "native-desktop.png")], check=True, timeout=15)
         finally:
             if process.poll() is None:
                 process.kill()

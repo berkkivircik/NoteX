@@ -72,6 +72,10 @@ def main():
     shutil.copytree(ROOT / "PowerEditor/Packaging/NoteX/assets/fonts", resources / "Fonts")
     for source in (ROOT / "scintilla/cocoa/res").glob("*.png"):
         shutil.copy2(source, resources / source.name)
+    # Xcode normally combines these PNG pairs into the TIFFs Cocoa loads.
+    for stem in ["mac_cursor_busy", "mac_cursor_flipped", "info_bar_bg"]:
+        subprocess.run(["tiffutil", "-cathidpicheck", str(resources / f"{stem}.png"),
+                        str(resources / f"{stem}@2x.png"), "-out", str(resources / f"{stem}.tiff")], check=True)
     revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     (resources / "SOURCE.txt").write_text(
         f"NoteX {VERSION} native macOS preview {BUILD}\nSource revision: {revision}\n"

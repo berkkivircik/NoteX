@@ -33,3 +33,28 @@ jobs:
           path: |
             dist/macOS/test-results.json
             dist/macOS/native-preview.png
+            dist/macOS/native-desktop.png
+  verify-newer-macos:
+    needs: build
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          name: NoteX-macos-arm64
+          path: dist
+      - name: Verify the same application on newer macOS
+        run: |
+          mkdir -p dist/macOS
+          ditto -x -k dist/NoteX-1.3.2-macos-arm64.zip dist/macOS
+          codesign --verify --strict dist/macOS/NoteX.app
+          python3 macOS/test.py
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        if: always()
+        with:
+          name: macos-26-test-results
+          path: |
+            dist/macOS/test-results.json
+            dist/macOS/native-preview.png
+            dist/macOS/native-desktop.png

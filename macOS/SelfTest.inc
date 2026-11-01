@@ -19,13 +19,21 @@ static void Bold24(ScintillaView *view) {
     NSError *error = nil;
     if ([mode isEqual:@"seed"] || [mode isEqual:@"crash-seed"]) {
         NXDocument *doc = self.current;
-        SetText(doc.editor, Sample()); Bold24(doc.editor);
+        NSData *initial = [mode isEqual:@"seed"] ? [Sample() subdataWithRange:NSMakeRange(0, Sample().length - 8)] : Sample();
+        SetText(doc.editor, initial); Bold24(doc.editor);
         Send(doc.editor, SCI_GOTOPOS, Sample().length);
         // Use the regular autosnapshot timer, not a separate test storage implementation.
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1500 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
             Check([NSFileManager.defaultManager fileExistsAtPath:[self.storage.directory stringByAppendingPathComponent:@"session.plist"]], "autosnapshot completed");
             printf("READY\n"); fflush(stdout);
-            if ([mode isEqual:@"seed"]) [NSApp terminate:nil];
+            if ([mode isEqual:@"seed"]) {
+                NSData *tail = [Sample() subdataWithRange:NSMakeRange(Sample().length - 8, 8)];
+                Send(doc.editor, SCI_APPENDTEXT, tail.length, reinterpret_cast<sptr_t>(tail.bytes));
+                Bold24(doc.editor);
+                Send(doc.editor, SCI_GOTOPOS, Sample().length);
+                // Quit before the next autosnapshot: termination must flush the last edit.
+                [NSApp terminate:nil];
+            }
         });
         return;
     }
@@ -43,7 +51,11 @@ static void Bold24(ScintillaView *view) {
     Check(self.documents.count == 1 && Text(self.current.editor).length == 0, "fresh launch has an empty document");
     Check(GetLexerCount() > 100, "bundled native syntax lexers");
     NXDocument *doc = self.current;
-    SetText(doc.editor, Sample()); Bold24(doc.editor);
+    SetText(doc.editor, Sample());
+    const auto originalHeight = Send(doc.editor, SCI_TEXTHEIGHT, 0);
+    Bold24(doc.editor);
+    [self.window display];
+    Check(Send(doc.editor, SCI_TEXTHEIGHT, 0) > originalHeight, "Cocoa line height follows larger font");
     Check(doc.dirty, "formatting sets dirty state");
     Send(doc.editor, SCI_UNDO);
     Check(State(doc.editor).runs.empty(), "formatting undo");
@@ -86,6 +98,8 @@ static void Bold24(ScintillaView *view) {
     error = nil;
     Check(![self saveDocument:doc path:path error:&error], "refuse overwriting externally modified file");
     Check([[[NSString alloc] initWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil] isEqual:@"external edit"], "external edit remains intact");
+    error = nil;
+    Check(![self saveDocument:doc path:[self.storage.directory stringByAppendingPathComponent:@"missing/subfolder/file.txt"] error:&error], "failed file write is reported");
     NSString *collision = [self.storage.directory stringByAppendingPathComponent:@"collision.txt"];
     Check(NXWrite([@"unrelated" dataUsingEncoding:NSUTF8StringEncoding], [collision stringByAppendingString:@".notex"], &error), "prepare companion collision");
     error = nil;
@@ -104,6 +118,9 @@ static void Bold24(ScintillaView *view) {
     Check([[backup load:&error] isEqual:session], "recover previous snapshot after corruption");
     auto recoveryFiles = [NSFileManager.defaultManager contentsOfDirectoryAtPath:backupPath error:nil];
     Check([recoveryFiles filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"SELF BEGINSWITH 'recovery-'"]].count == 1, "retain damaged session for recovery");
+    Check(NXWrite([@"corrupt too" dataUsingEncoding:NSUTF8StringEncoding], [backupPath stringByAppendingPathComponent:@"session.plist.previous"], &error), "simulate both snapshots damaged");
+    error = nil;
+    Check(![backup load:&error] && error, "stop instead of resetting an unrecoverable session");
     NSString *bad = [self.storage.directory stringByAppendingPathComponent:@"binary.bin"];
     const unsigned char invalid[] = {0xff, 0x00, 0x99};
     Check(NXWrite([NSData dataWithBytes:invalid length:3], bad, &error), "prepare invalid text");
